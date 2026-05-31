@@ -19,6 +19,7 @@ from . import (
     policies,
     property_mappings,
     providers,
+    roles,
     tokens,
     users,
 )
@@ -27,6 +28,7 @@ from . import (
 _MODULES = [
     users,
     groups,
+    roles,
     applications,
     providers,
     policies,
