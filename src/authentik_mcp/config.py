@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     authentik_verify_ssl: bool = Field(default=True)
 
     # --- Proteksi OAuth untuk MCP server ---
+    oauth_oidc_config_url: str = Field(default="")
     oauth_introspection_url: str = Field(default="")
     oauth_client_id: str = Field(default="")
     oauth_client_secret: SecretStr = Field(default=SecretStr(""))
@@ -72,8 +73,11 @@ class Settings(BaseSettings):
     mcp_host: str = Field(default="0.0.0.0")
     mcp_port: int = Field(default=8000, ge=1, le=65535)
     mcp_log_level: str = Field(default="INFO")
+    mcp_base_url: str = Field(default="")
 
-    @field_validator("authentik_url", "oauth_introspection_url")
+    @field_validator(
+        "authentik_url", "oauth_introspection_url", "oauth_oidc_config_url", "mcp_base_url"
+    )
     @classmethod
     def _strip_trailing_slash(cls, value: str) -> str:
         """Hapus trailing slash agar penggabungan path konsisten."""
@@ -97,12 +101,18 @@ class Settings(BaseSettings):
         return f"{self.authentik_url}/api/v3"
 
     @property
-    def oauth_enabled(self) -> bool:
-        """True bila konfigurasi OAuth introspection lengkap.
+    def oidc_proxy_enabled(self) -> bool:
+        """True bila konfigurasi OIDCProxy lengkap (untuk Claude.ai integration)."""
+        return bool(
+            self.oauth_oidc_config_url
+            and self.mcp_base_url
+            and self.oauth_client_id
+            and self.oauth_client_secret.get_secret_value()
+        )
 
-        MCP server hanya mengaktifkan proteksi autentikasi bila ketiga nilai
-        (introspection URL, client id, client secret) tersedia.
-        """
+    @property
+    def oauth_enabled(self) -> bool:
+        """True bila minimal konfigurasi OAuth introspection tersedia (fallback)."""
         return bool(
             self.oauth_introspection_url
             and self.oauth_client_id
