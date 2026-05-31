@@ -66,7 +66,23 @@ tests/          -> pytest + respx (mock HTTP), terpisah dari source
 4. Tulis unit test ber-mock (respx) untuk happy path + minimal satu jalur error.
 5. Jalankan lint & test via Docker. Pastikan hijau.
 
-## Test (wajib via Docker)
+## Test (wajib via Docker — gunakan Makefile)
+
+Gunakan `Makefile` untuk menjalankan test tanpa menghasilkan artifact di direktori
+lokal. Perintah `make check` adalah satu-satunya yang dibutuhkan untuk mensimulasikan
+seluruh job CI:
+
+```bash
+make check        # build → lint → test (simulasi penuh CI)
+make build-test   # hanya build image
+make lint         # hanya ruff check + format check
+make test         # hanya pytest
+```
+
+Semua perintah di atas berjalan di dalam Docker; tidak ada `.coverage`,
+`.pytest_cache`, atau artifact lain yang muncul di direktori kerja.
+
+Jika ingin menjalankan Docker secara manual (identik dengan yang dilakukan Makefile):
 
 ```bash
 docker build --target test -t authentik-mcp:test .

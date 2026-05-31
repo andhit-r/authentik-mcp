@@ -216,26 +216,35 @@ divalidasi server ini via introspeksi setiap request.
 ## Pengembangan & Test
 
 Semua test memakai mock HTTP (`respx`) sehingga **tidak menyentuh Authentik
-sungguhan**. Jalankan via Docker (build dulu, lalu test di dalam image):
+sungguhan**. Seluruh perintah berikut berjalan **di dalam Docker** — tidak ada
+artifact (`.coverage`, `.pytest_cache`, dll.) yang dihasilkan di direktori lokal.
+
+### Menggunakan Makefile (direkomendasikan)
+
+Cara paling mudah dan identik dengan CI:
 
 ```bash
-# Build image test
+make check        # build → lint → test (simulasi penuh CI, satu perintah)
+make build-test   # hanya build image test
+make lint         # hanya ruff check + format check (butuh image terbangun)
+make test         # hanya pytest (butuh image terbangun)
+make help         # tampilkan semua target
+```
+
+### Perintah Docker manual
+
+Ekuivalen dengan yang dijalankan Makefile, juga identik dengan CI:
+
+```bash
+# Build image test (identik CI: "Build test image")
 docker build --target test -t authentik-mcp:test .
 
-# Linter
+# Lint (identik CI: job "lint")
 docker run --rm authentik-mcp:test ruff check src tests
 docker run --rm authentik-mcp:test ruff format --check src tests
 
-# Unit test
+# Unit test (identik CI: "Run pytest")
 docker run --rm authentik-mcp:test pytest
-```
-
-Atau langsung di lingkungan lokal:
-
-```bash
-pip install -e ".[dev]"
-ruff check src tests
-pytest
 ```
 
 ## Rilis & Tagging

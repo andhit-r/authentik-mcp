@@ -1,0 +1,28 @@
+# Pre-commit hooks yang mensimulasikan job "lint" di .github/workflows/ci.yml.
+#
+# Instalasi (sekali):
+#   pip install pre-commit          # atau tambahkan ke extras [dev]
+#   pre-commit install              # pasang hook ke .git/hooks/pre-commit
+#
+# Jalankan manual di semua file:
+#   pre-commit run --all-files
+#
+# Ruff yang dipakai di sini diambil dari mirror resmi (charliermarsh/ruff-pre-commit)
+# sehingga versinya dikunci eksplisit dan identik dengan yang dipasang di CI
+# (pip install ruff>=0.6.0). Perbarui `rev:` bila ingin meng-upgrade ruff.
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Kunci ke versi yang kompatibel dengan pin ruff>=0.6.0 di pyproject.toml.
+    rev: v0.11.13
+    hooks:
+      # Mensimulasikan: ruff check src tests  (dari job lint CI)
+      - id: ruff
+        name: ruff check
+        args: [--fix]
+        files: ^(src|tests)/
+
+      # Mensimulasikan: ruff format --check src tests  (dari job lint CI)
+      - id: ruff-format
+        name: ruff format
+        files: ^(src|tests)/
