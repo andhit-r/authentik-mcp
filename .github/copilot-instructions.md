@@ -22,8 +22,9 @@ Server mengekspos tool per domain Authentik dan dapat dilindungi dengan OAuth
    AI dan manusia dapat memahaminya di kemudian hari. Gaya docstring: Google
    style (Args/Returns/Raises), berbahasa Indonesia (konsisten dengan kode yang
    ada).
-4. **Jalankan unit test via Docker** setiap ada perubahan: build image dulu,
-   lalu jalankan test memakai image tersebut (lihat bagian Test).
+4. **Selalu gunakan `make` untuk menjalankan test, lint, dan CI lokal.** Jangan
+   jalankan `pytest`, `ruff`, atau perintah Python langsung — selalu lewat
+   `make check` / `make test` / `make lint` (lihat bagian Test).
 
 ## Struktur Direktori
 
@@ -64,31 +65,18 @@ tests/          -> pytest + respx (mock HTTP), terpisah dari source
    daftarkan di `tools/__init__.py`).
 3. Beri nama `authentik_<domain>_<aksi>`, tambahkan docstring Args/Returns/Raises.
 4. Tulis unit test ber-mock (respx) untuk happy path + minimal satu jalur error.
-5. Jalankan lint & test via Docker. Pastikan hijau.
+5. Jalankan `make check`. Pastikan hijau sebelum commit.
 
-## Test (wajib via Docker — gunakan Makefile)
+## Test (selalu via `make`)
 
-Gunakan `Makefile` untuk menjalankan test tanpa menghasilkan artifact di direktori
-lokal. Perintah `make check` adalah satu-satunya yang dibutuhkan untuk mensimulasikan
-seluruh job CI:
+**Jangan jalankan `pytest` atau `ruff` langsung** — selalu gunakan `make` agar
+berjalan di dalam Docker dan tidak meninggalkan artifact di direktori kerja.
 
 ```bash
-make check        # build → lint → test (simulasi penuh CI)
-make build-test   # hanya build image
+make check        # build → lint → test (simulasi penuh CI — gunakan ini sebelum commit)
+make build-test   # hanya build image test
 make lint         # hanya ruff check + format check
 make test         # hanya pytest
-```
-
-Semua perintah di atas berjalan di dalam Docker; tidak ada `.coverage`,
-`.pytest_cache`, atau artifact lain yang muncul di direktori kerja.
-
-Jika ingin menjalankan Docker secara manual (identik dengan yang dilakukan Makefile):
-
-```bash
-docker build --target test -t authentik-mcp:test .
-docker run --rm authentik-mcp:test ruff check src tests
-docker run --rm authentik-mcp:test ruff format --check src tests
-docker run --rm authentik-mcp:test pytest
 ```
 
 - Semua HTTP call ke Authentik **harus di-mock** (`respx`). Jangan pernah

@@ -58,7 +58,7 @@ async def test_provider_get_invalid_type(mcp: FastMCP) -> None:
         await call_tool(
             mcp,
             "authentik_provider_get",
-            {"provider_type": "radius", "provider_id": 1},
+            {"provider_type": "unknown", "provider_id": 1},
         )
     assert "provider_type tidak valid" in str(exc.value)
 
