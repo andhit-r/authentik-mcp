@@ -72,15 +72,25 @@ def _build_oidc_proxy(settings: Settings) -> OIDCProxy:
             cache_ttl_seconds=cache_ttl,
         )
 
+    # Gunakan URL internal bila tersedia agar tidak bergantung resolusi DNS publik
+    # dari dalam Docker. URL ini hanya untuk fetch OIDC discovery; tidak diekspos
+    # ke client (client tetap melihat mcp_base_url).
+    effective_config_url = settings.oauth_oidc_config_url_internal or settings.oauth_oidc_config_url
+
     logger.info(
         "Autentikasi MCP aktif: OIDCProxy → %s (base_url: %s, scopes: %s).",
         settings.oauth_oidc_config_url,
         settings.mcp_base_url,
         required_scopes or "tidak ada",
     )
+    if settings.oauth_oidc_config_url_internal:
+        logger.info(
+            "OIDCProxy menggunakan URL internal untuk OIDC discovery: %s",
+            effective_config_url,
+        )
 
     proxy_kwargs: dict = {
-        "config_url": settings.oauth_oidc_config_url,
+        "config_url": effective_config_url,
         "client_id": settings.oauth_client_id,
         "client_secret": settings.oauth_client_secret.get_secret_value(),
         "base_url": settings.mcp_base_url,

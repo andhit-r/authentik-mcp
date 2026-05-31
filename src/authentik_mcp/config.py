@@ -62,6 +62,15 @@ class Settings(BaseSettings):
 
     # --- Proteksi OAuth untuk MCP server ---
     oauth_oidc_config_url: str = Field(default="")
+    oauth_oidc_config_url_internal: str = Field(
+        default="",
+        description=(
+            "URL internal OIDC discovery (opsional). Bila diisi, digunakan untuk "
+            "fetch konfigurasi OIDC di dalam Docker (menghindari resolusi DNS "
+            "publik). Misalnya: http://server:9000/application/o/my-app/. "
+            "Tidak berpengaruh pada URL yang diiklankan ke client."
+        ),
+    )
     oauth_introspection_url: str = Field(default="")
     oauth_client_id: str = Field(default="")
     oauth_client_secret: SecretStr = Field(default=SecretStr(""))
@@ -76,7 +85,11 @@ class Settings(BaseSettings):
     mcp_base_url: str = Field(default="")
 
     @field_validator(
-        "authentik_url", "oauth_introspection_url", "oauth_oidc_config_url", "mcp_base_url"
+        "authentik_url",
+        "oauth_introspection_url",
+        "oauth_oidc_config_url",
+        "oauth_oidc_config_url_internal",
+        "mcp_base_url",
     )
     @classmethod
     def _strip_trailing_slash(cls, value: str) -> str:
