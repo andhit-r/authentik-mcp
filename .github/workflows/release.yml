@@ -1,0 +1,86 @@
+name: Release
+
+# Berjalan saat tag versi (vMAJOR.MINOR.PATCH) di-push.
+# Membuat GitHub Release otomatis dan mem-publish image ke GHCR.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write # untuk membuat GitHub Release
+  packages: write # untuk push image ke GHCR
+
+jobs:
+  # Jalankan ulang test di dalam Docker sebelum rilis sebagai pengaman.
+  test:
+    name: Unit Test (Docker)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build test image
+        run: docker build --target test -t authentik-mcp:test .
+
+      - name: Run pytest
+        run: docker run --rm authentik-mcp:test pytest
+
+  github-release:
+    name: GitHub Release
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Buat release dari tag menggunakan gh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes
+
+  docker-image:
+    name: Build & Publish Image (GHCR)
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login ke GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Metadata image (tag & label)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          # Tag: versi penuh (1.2.3), minor (1.2), major (1), dan latest.
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+
+      - name: Build & push (stage runtime)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runtime
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

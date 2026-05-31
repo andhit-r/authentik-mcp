@@ -1,0 +1,68 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "authentik-mcp"
+version = "1.0.0"
+description = "MCP server untuk mengelola Authentik melalui REST API, dibangun dengan FastMCP."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "andhit-r", email = "andhitia.r@gmail.com" }]
+keywords = ["authentik", "mcp", "fastmcp", "iam", "oauth", "identity"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Systems Administration :: Authentication/Directory",
+]
+
+# Versi di-pin ke rentang yang kompatibel dengan API yang diinspeksi saat
+# pengembangan (fastmcp 3.x, httpx 0.28.x, pydantic 2.x).
+dependencies = [
+    "fastmcp>=3.3.0,<4.0.0",
+    "httpx>=0.28.0,<0.29.0",
+    "pydantic>=2.0.0,<3.0.0",
+    "pydantic-settings>=2.0.0,<3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
+    "respx>=0.21.0",
+    "ruff>=0.6.0",
+]
+
+[project.scripts]
+authentik-mcp = "authentik_mcp.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/andhit-r/authentik-mcp"
+Repository = "https://github.com/andhit-r/authentik-mcp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/authentik_mcp"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# E/W: pycodestyle, F: pyflakes, I: isort, B: bugbear, UP: pyupgrade,
+# C4: comprehensions, SIM: simplify
+select = ["E", "W", "F", "I", "B", "UP", "C4", "SIM"]
+ignore = ["E501"]  # line-length sudah ditangani formatter
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-q --cov=authentik_mcp --cov-report=term-missing"
