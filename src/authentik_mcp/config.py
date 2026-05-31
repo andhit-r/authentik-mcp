@@ -14,7 +14,9 @@ Penggunaan::
 
 from __future__ import annotations
 
+import re
 from functools import lru_cache
+from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -77,6 +79,20 @@ class Settings(BaseSettings):
     oauth_required_scopes: str = Field(default="")
     oauth_cache_ttl: int = Field(default=0, ge=0)
 
+    # --- Login via Authentik (OAuth Proxy + Dynamic Client Registration) ---
+    # Bila lengkap, MCP server bertindak sebagai OAuth Proxy: Claude mendaftar
+    # otomatis (DCR) dan pengguna cukup LOGIN di Authentik — tanpa mengisi
+    # client id/secret di Claude. ``client_id``/``client_secret`` di atas tetap
+    # berada di sisi server (file .env).
+    #
+    # Domain publik Authentik & slug provider bisa di-derive otomatis dari
+    # ``oauth_oidc_config_url`` bila variabel berikut dikosongkan.
+    authentik_oauth_domain: str = Field(default="")
+    authentik_app_slug: str = Field(default="")
+    # Daftar username Authentik yang diizinkan (dipisah koma). Kosong = semua
+    # user yang berhasil login di Authentik diizinkan.
+    authentik_allowed_usernames: str = Field(default="")
+
     # --- Runtime MCP ---
     mcp_transport: str = Field(default="http")
     mcp_host: str = Field(default="0.0.0.0")
@@ -90,6 +106,7 @@ class Settings(BaseSettings):
         "oauth_oidc_config_url",
         "oauth_oidc_config_url_internal",
         "mcp_base_url",
+        "authentik_oauth_domain",
     )
     @classmethod
     def _strip_trailing_slash(cls, value: str) -> str:
@@ -131,6 +148,56 @@ class Settings(BaseSettings):
             and self.oauth_client_id
             and self.oauth_client_secret.get_secret_value()
         )
+
+    @property
+    def oauth_authentik_domain(self) -> str:
+        """URL publik (browser-facing) instance Authentik untuk OAuth Proxy.
+
+        Urutan resolusi: ``authentik_oauth_domain`` eksplisit → scheme+host dari
+        ``oauth_oidc_config_url`` → ``authentik_url`` sebagai fallback terakhir.
+        """
+        if self.authentik_oauth_domain:
+            return self.authentik_oauth_domain
+        if self.oauth_oidc_config_url:
+            parts = urlsplit(self.oauth_oidc_config_url)
+            if parts.scheme and parts.netloc:
+                return f"{parts.scheme}://{parts.netloc}"
+        return self.authentik_url
+
+    @property
+    def oauth_app_slug(self) -> str:
+        """Slug OAuth2/OIDC Provider di Authentik.
+
+        Diambil dari ``authentik_app_slug`` eksplisit, atau di-parse dari pola
+        ``/application/o/<slug>/`` pada ``oauth_oidc_config_url``.
+        """
+        if self.authentik_app_slug:
+            return self.authentik_app_slug.strip("/")
+        if self.oauth_oidc_config_url:
+            match = re.search(r"/application/o/([^/]+)/", self.oauth_oidc_config_url)
+            if match:
+                return match.group(1)
+        return ""
+
+    @property
+    def oauth_proxy_enabled(self) -> bool:
+        """True bila konfigurasi OAuth Proxy (login via Authentik) lengkap.
+
+        Mode ini membuat Claude mendaftar otomatis (DCR) sehingga pengguna tidak
+        perlu memasukkan client id/secret — cukup login di Authentik.
+        """
+        return bool(
+            self.oauth_client_id
+            and self.oauth_client_secret.get_secret_value()
+            and self.oauth_authentik_domain
+            and self.oauth_app_slug
+            and self.mcp_base_url
+        )
+
+    @property
+    def allowed_usernames_list(self) -> list[str]:
+        """Daftar username yang diizinkan login (kosong = semua diizinkan)."""
+        return [u.strip() for u in self.authentik_allowed_usernames.split(",") if u.strip()]
 
     @property
     def required_scopes_list(self) -> list[str]:

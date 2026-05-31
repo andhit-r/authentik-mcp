@@ -19,7 +19,7 @@ Authentik Anda — siap dipakai dari Claude.ai atau klien MCP lain.
   - [Lokal (Python)](#lokal-python)
   - [Docker](#docker)
 - [Dokumentasi API (Swagger)](#dokumentasi-api-swagger)
-- [Proteksi Akses MCP via OAuth (Authentik sebagai IdP)](#proteksi-akses-mcp-via-oauth-authentik-sebagai-idp)
+- [Login via Authentik (OAuth Proxy + DCR)](#login-via-authentik-oauth-proxy--dcr)
   - [1. Buat OAuth2/OpenID Provider di Authentik](#1-buat-oauth2openid-provider-di-authentik)
   - [2. Ambil Client ID & Client Secret](#2-ambil-client-id--client-secret)
   - [3. Konfigurasi environment MCP server](#3-konfigurasi-environment-mcp-server)
@@ -34,8 +34,10 @@ Authentik Anda — siap dipakai dari Claude.ai atau klien MCP lain.
 
 - 🔧 **39 tool** terorganisir per domain Authentik dengan penamaan konsisten
   (`authentik_<domain>_<aksi>`).
-- 🔐 **Proteksi OAuth bawaan** — validasi Bearer token client lewat OAuth 2.0
-  Token Introspection (RFC 7662) ke Authentik (`/application/o/introspect/`).
+- 🔐 **Login via Authentik (OAuth Proxy + DCR)** — pengguna cukup **login di
+  Authentik**; client id/secret **tidak perlu** diisi di Claude (Claude mendaftar
+  otomatis lewat Dynamic Client Registration). Tersedia juga mode introspeksi
+  (RFC 7662) sebagai kompatibilitas mundur.
 - 🧰 **Penanganan error eksplisit** untuk 401/403/404/422/500 dengan pesan
   informatif.
 - 📖 **Swagger UI** untuk meninjau seluruh tool beserta skema parameternya.
@@ -48,7 +50,8 @@ Authentik Anda — siap dipakai dari Claude.ai atau klien MCP lain.
 src/authentik_mcp/
 ├── config.py        # konfigurasi dari environment (pydantic-settings)
 ├── client.py        # klien HTTP async ke Authentik + penanganan error
-├── auth.py          # verifier OAuth introspection (proteksi MCP)
+├── auth.py          # pemilihan auth provider (OAuth Proxy / introspeksi)
+├── auth_provider.py # AuthentikProvider (OAuth Proxy + DCR) — login via Authentik
 ├── docs.py          # rute Swagger/OpenAPI & /health
 ├── server.py        # perakitan FastMCP + registrasi semua tool
 ├── logging.py       # logging terpusat
@@ -88,20 +91,29 @@ Salin `.env.example` menjadi `.env` lalu isi nilainya. Variabel utama:
 | `AUTHENTIK_API_TOKEN` | ✅ | API Token Authentik (dikirim sebagai `Authorization: Bearer`) |
 | `AUTHENTIK_TIMEOUT` | – | Timeout request (detik), default `30` |
 | `AUTHENTIK_VERIFY_SSL` | – | Verifikasi TLS Authentik, default `true` |
-| `OAUTH_INTROSPECTION_URL` | – | Endpoint introspeksi, mis. `https://auth.yourdomain.com/application/o/introspect/` |
-| `OAUTH_CLIENT_ID` | – | Client ID OAuth untuk proteksi MCP |
-| `OAUTH_CLIENT_SECRET` | – | Client Secret OAuth untuk proteksi MCP |
-| `OAUTH_REQUIRED_SCOPES` | – | Scope wajib (dipisah spasi) |
+| `OAUTH_CLIENT_ID` | – | Client ID OAuth provider Authentik (sisi server) |
+| `OAUTH_CLIENT_SECRET` | – | Client Secret OAuth provider Authentik (sisi server) |
+| `OAUTH_OIDC_CONFIG_URL` | – | OIDC discovery URL; domain & slug provider di-derive otomatis dari sini |
+| `AUTHENTIK_OAUTH_DOMAIN` | – | (Opsional) URL publik Authentik bila tak memakai `OAUTH_OIDC_CONFIG_URL` |
+| `AUTHENTIK_APP_SLUG` | – | (Opsional) slug provider bila tak memakai `OAUTH_OIDC_CONFIG_URL` |
+| `AUTHENTIK_ALLOWED_USERNAMES` | – | Daftar username diizinkan (dipisah koma); kosong = semua user |
+| `OAUTH_REQUIRED_SCOPES` | – | Scope login (dipisah spasi); default `openid profile email` |
+| `MCP_BASE_URL` | – | URL publik server ini; **wajib** agar OAuth Proxy berfungsi |
+| `OAUTH_INTROSPECTION_URL` | – | (Fallback) endpoint introspeksi (RFC 7662) bila OAuth Proxy tak lengkap |
 | `OAUTH_CACHE_TTL` | – | TTL cache introspeksi (detik), `0` = nonaktif |
 | `MCP_TRANSPORT` | – | `http` (default) atau `stdio` |
 | `MCP_HOST` / `MCP_PORT` | – | Host/port saat transport http, default `0.0.0.0:8000` |
 | `MCP_LOG_LEVEL` | – | `DEBUG`/`INFO`/`WARNING`/`ERROR` |
 
 > **API Token Authentik** dibuat di: **Admin Interface → Directory → Tokens &
-> App passwords → Create**. Gunakan token milik akun dengan hak yang sesuai.
+> App passwords → Create**. Token ini dipakai server untuk **semua** panggilan
+> tool ke Authentik API.
 
-> ⚠️ Bila variabel `OAUTH_*` dikosongkan, MCP server berjalan **tanpa
-> autentikasi** — hanya untuk pengembangan lokal, jangan dipakai di produksi.
+> ℹ️ **Mode OAuth Proxy (login via Authentik)** aktif bila `OAUTH_CLIENT_ID`,
+> `OAUTH_CLIENT_SECRET`, domain publik Authentik (dari `OAUTH_OIDC_CONFIG_URL`
+> atau `AUTHENTIK_OAUTH_DOMAIN`), slug provider, dan `MCP_BASE_URL` terisi.
+> Bila tak lengkap, server mundur ke introspeksi; bila itu pun kosong, server
+> berjalan **tanpa autentikasi** (hanya untuk pengembangan lokal).
 
 ## Menjalankan
 
@@ -144,15 +156,21 @@ Saat transport `http`, server menyediakan:
 > Catatan: tool MCP dipanggil melalui protokol MCP pada `/mcp/`. Dokumen OpenAPI
 > bersifat deskriptif untuk memudahkan peninjauan skema tiap tool.
 
-## Proteksi Akses MCP via OAuth (Authentik sebagai IdP)
+## Login via Authentik (OAuth Proxy + DCR)
 
-MCP server ini dapat dilindungi sehingga **hanya pengguna terautentikasi** yang
-dapat mengaksesnya, menggunakan **Authentik sendiri** sebagai Identity Provider.
+MCP server ini dilindungi sehingga **hanya pengguna terautentikasi** yang dapat
+mengaksesnya, menggunakan **Authentik** sebagai Identity Provider.
 
-Pendekatan yang dipakai: **Bearer token validation bawaan FastMCP**. Saat
-client (mis. Claude.ai) memanggil MCP server, token yang dibawanya divalidasi
-secara real-time melalui **OAuth 2.0 Token Introspection (RFC 7662)** ke endpoint
-`/application/o/introspect/` milik Authentik.
+Pendekatan yang dipakai: **OAuth Proxy + Dynamic Client Registration**. MCP
+server mengekspos endpoint OAuth-nya sendiri dan menerima pendaftaran client
+otomatis dari Claude. Akibatnya, **pengguna tidak perlu memasukkan client
+id/secret di Claude** — cukup **login di Authentik** saat menghubungkan
+connector. `OAUTH_CLIENT_ID`/`OAUTH_CLIENT_SECRET` berada di sisi server
+(`.env`), dibuat sekali oleh admin di Authentik.
+
+> Catatan API: setelah login, panggilan tool ke Authentik API tetap memakai
+> `AUTHENTIK_API_TOKEN` (server-side). Login Authentik berfungsi sebagai
+> **gerbang akses** ke MCP server.
 
 ### 1. Buat OAuth2/OpenID Provider di Authentik
 
@@ -163,23 +181,23 @@ secara real-time melalui **OAuth 2.0 Token Introspection (RFC 7662)** ke endpoin
    - **Authorization flow**: pilih flow consent/authorization yang sesuai
      (mis. `default-provider-authorization-explicit-consent`).
    - **Client type**: **Confidential**.
-   - **Redirect URIs / Origins**: tambahkan
+   - **Redirect URIs / Origins**: arahkan ke callback server MCP ini
      ```
-     https://claude.ai/oauth/callback
+     <MCP_BASE_URL>/auth/callback
      ```
-   - **Scopes**: aktifkan minimal `openid`, `profile`, `email` (sesuaikan dengan
-     `OAUTH_REQUIRED_SCOPES` bila Anda mewajibkan scope tertentu).
+     contoh: `https://mcp.yourdomain.com/auth/callback`
+   - **Scopes**: aktifkan minimal `openid`, `profile`, `email`.
 4. Buat juga **Application** (Applications → Applications → Create) dan tautkan ke
-   provider di atas agar muncul di portal pengguna.
+   provider di atas.
 
 ### 2. Ambil Client ID & Client Secret
 
 Buka provider yang baru dibuat → bagian **Protocol settings**:
 
 - **Client ID** dan **Client Secret** tertera di sana. Salin keduanya.
-- **Token introspection URL** Authentik berbentuk:
+- **OIDC discovery URL** provider berbentuk:
   ```
-  https://auth.yourdomain.com/application/o/introspect/
+  https://auth.yourdomain.com/application/o/authentik-mcp/.well-known/openid-configuration
   ```
 
 ### 3. Konfigurasi environment MCP server
@@ -187,15 +205,18 @@ Buka provider yang baru dibuat → bagian **Protocol settings**:
 Isi pada `.env`:
 
 ```bash
-OAUTH_INTROSPECTION_URL=https://auth.yourdomain.com/application/o/introspect/
 OAUTH_CLIENT_ID=<client-id-dari-authentik>
 OAUTH_CLIENT_SECRET=<client-secret-dari-authentik>
-# Opsional, wajibkan scope tertentu:
-OAUTH_REQUIRED_SCOPES=openid profile
+# Domain publik & slug provider di-derive otomatis dari URL ini:
+OAUTH_OIDC_CONFIG_URL=https://auth.yourdomain.com/application/o/authentik-mcp/.well-known/openid-configuration
+# URL publik server MCP ini (wajib untuk OAuth Proxy):
+MCP_BASE_URL=https://mcp.yourdomain.com
+# Opsional: batasi user tertentu (kosong = semua user Authentik diizinkan):
+AUTHENTIK_ALLOWED_USERNAMES=
 ```
 
-Restart server. Pada log Anda akan melihat `Autentikasi MCP aktif: introspeksi
-token ke ...`.
+Restart server. Pada log Anda akan melihat
+`Autentikasi MCP aktif: AuthentikProvider (OAuth Proxy + DCR) ...`.
 
 ### 4. Tambahkan sebagai Custom Connector di Claude.ai
 
@@ -205,13 +226,10 @@ Di Claude.ai, buka **Settings → Connectors → Add custom connector**, lalu is
 |---|---|
 | **Name** | `Authentik` (bebas) |
 | **Remote MCP server URL** | `https://mcp.yourdomain.com/mcp/` (URL publik server ini) |
-| **OAuth Client ID** | Client ID dari Authentik (langkah 2) |
-| **OAuth Client Secret** | Client Secret dari Authentik (langkah 2) |
 
-Redirect URI yang dipakai Claude.ai adalah `https://claude.ai/oauth/callback`
-— pastikan sudah terdaftar di provider Authentik (langkah 1). Setelah connector
-ditambahkan, Claude.ai akan menjalankan alur OAuth ke Authentik; token hasilnya
-divalidasi server ini via introspeksi setiap request.
+Tidak ada kolom client id/secret yang perlu diisi — Claude mendaftar otomatis
+(DCR). Saat menghubungkan, Anda akan diarahkan untuk **login di Authentik**.
+Setelah login berhasil, connector aktif.
 
 ## Pengembangan & Test
 
