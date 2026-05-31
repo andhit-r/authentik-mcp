@@ -67,13 +67,15 @@ tests/          -> pytest + respx (mock HTTP), terpisah dari source
 4. Tulis unit test ber-mock (respx) untuk happy path + minimal satu jalur error.
 5. Jalankan `make check`. Pastikan hijau sebelum commit.
 
-## Test (selalu via `make`)
+## Test (WAJIB via `make` — tidak ada pengecualian)
 
-**Jangan jalankan `pytest` atau `ruff` langsung** — selalu gunakan `make` agar
-berjalan di dalam Docker dan tidak meninggalkan artifact di direktori kerja.
+> **LARANGAN KERAS:** Jangan pernah menjalankan `.venv/bin/python -m pytest`,
+> `python -m pytest`, `pytest`, atau `ruff` secara langsung. Selalu gunakan
+> perintah `make` di bawah ini — tanpa terkecuali, termasuk saat verifikasi
+> cepat setelah menulis kode.
 
 ```bash
-make check        # build → lint → test (simulasi penuh CI — gunakan ini sebelum commit)
+make check        # build → lint → test (simulasi penuh CI — wajib sebelum commit)
 make build-test   # hanya build image test
 make lint         # hanya ruff check + format check
 make test         # hanya pytest
