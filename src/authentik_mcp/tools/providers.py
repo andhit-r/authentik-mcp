@@ -1,7 +1,8 @@
-"""Tool MCP untuk mengelola Provider Authentik (CRUD).
+"""Tool MCP untuk mengelola Provider Authentik (CRUD per tipe).
 
-Mendaftarkan tool: list (semua provider), get, create, update, delete per tipe
-provider (OAuth2, LDAP, SAML, Proxy, Radius).
+Mendaftarkan tool: list (semua provider), get, create, update, delete untuk
+seluruh tipe provider Authentik: OAuth2, LDAP, SAML, Proxy, Radius, SCIM, RAC,
+SSF, WS-Federation, Google Workspace, dan Microsoft Entra.
 """
 
 from __future__ import annotations
@@ -12,22 +13,40 @@ from fastmcp import FastMCP
 
 from ..client import AuthentikClient
 
-# Pemetaan tipe provider -> path endpoint Authentik.
+# Pemetaan tipe provider -> path endpoint Authentik (relatif terhadap /api/v3).
 _PROVIDER_PATHS: dict[str, str] = {
     "oauth2": "/providers/oauth2/",
     "ldap": "/providers/ldap/",
     "saml": "/providers/saml/",
     "proxy": "/providers/proxy/",
     "radius": "/providers/radius/",
+    "scim": "/providers/scim/",
+    "rac": "/providers/rac/",
+    "ssf": "/providers/ssf/",
+    "wsfed": "/providers/wsfed/",
+    "google_workspace": "/providers/google_workspace/",
+    "microsoft_entra": "/providers/microsoft_entra/",
 }
 
-# Field tambahan yang wajib diisi per tipe (di luar name/authorization_flow/invalidation_flow).
-_TYPE_EXTRA_REQUIRED: dict[str, list[str]] = {
-    "oauth2": ["redirect_uris"],
-    "saml": ["acs_url"],
-    "proxy": ["external_host"],
-    "ldap": [],
-    "radius": [],
+# Field yang wajib ada di payload create per tipe (selain ``name`` yang selalu
+# wajib). Field non-eksplisit (mis. ``signing_key``, ``credentials``) dapat
+# dikirim lewat ``extra_config``.
+_PROVIDER_REQUIRED: dict[str, list[str]] = {
+    "oauth2": ["authorization_flow", "invalidation_flow", "redirect_uris"],
+    "saml": ["authorization_flow", "invalidation_flow", "acs_url"],
+    "ldap": ["authorization_flow", "invalidation_flow"],
+    "proxy": ["authorization_flow", "invalidation_flow", "external_host"],
+    "radius": ["authorization_flow", "invalidation_flow"],
+    "scim": ["url"],
+    "rac": ["authorization_flow"],
+    "ssf": ["signing_key"],
+    "wsfed": ["authorization_flow", "invalidation_flow", "reply_url", "wtrealm"],
+    "google_workspace": [
+        "credentials",
+        "default_group_email_domain",
+        "delegated_subject",
+    ],
+    "microsoft_entra": ["client_id", "client_secret", "tenant_id"],
 }
 
 
@@ -72,8 +91,9 @@ def register(mcp: FastMCP, client: AuthentikClient) -> None:
         """Ambil detail satu provider sesuai tipenya.
 
         Args:
-            provider_type: Tipe provider: ``oauth2``, ``ldap``, ``saml``, ``proxy``,
-                atau ``radius``.
+            provider_type: Salah satu kunci tipe provider (``oauth2``, ``ldap``,
+                ``saml``, ``proxy``, ``radius``, ``scim``, ``rac``, ``ssf``,
+                ``wsfed``, ``google_workspace``, ``microsoft_entra``).
             provider_id: pk numerik provider.
 
         Returns:
@@ -90,68 +110,75 @@ def register(mcp: FastMCP, client: AuthentikClient) -> None:
     async def authentik_provider_create(
         provider_type: str,
         name: str,
-        authorization_flow: str,
-        invalidation_flow: str,
+        authorization_flow: str | None = None,
+        invalidation_flow: str | None = None,
         redirect_uris: list[dict[str, Any]] | None = None,
         acs_url: str | None = None,
         external_host: str | None = None,
+        url: str | None = None,
         extra_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Buat provider baru.
+        """Buat provider baru sesuai tipenya.
 
-        Field wajib bervariasi per tipe:
+        Field wajib bervariasi per tipe (selain ``name`` yang selalu wajib):
 
-        - **oauth2**: ``redirect_uris`` wajib — list dict ``{"matching_mode": "strict"|"regex", "url": "..."}``
-        - **saml**: ``acs_url`` wajib — URL ACS endpoint SP.
-        - **proxy**: ``external_host`` wajib — URL host eksternal yang diproteksi.
-        - **ldap** / **radius**: tidak ada field tambahan yang wajib.
+        - **oauth2**: ``authorization_flow``, ``invalidation_flow``, ``redirect_uris``.
+        - **saml**: ``authorization_flow``, ``invalidation_flow``, ``acs_url``.
+        - **ldap** / **radius**: ``authorization_flow``, ``invalidation_flow``.
+        - **proxy**: ``authorization_flow``, ``invalidation_flow``, ``external_host``.
+        - **rac**: ``authorization_flow``.
+        - **scim**: ``url`` (token via ``extra_config``).
+        - **ssf**: ``signing_key`` (UUID certificate-keypair) via ``extra_config``.
+        - **wsfed**: ``authorization_flow``, ``invalidation_flow``, ``reply_url``,
+          ``wtrealm`` (dua terakhir via ``extra_config``).
+        - **google_workspace**: ``credentials``, ``default_group_email_domain``,
+          ``delegated_subject`` (semua via ``extra_config``).
+        - **microsoft_entra**: ``client_id``, ``client_secret``, ``tenant_id``
+          (semua via ``extra_config``).
 
         Args:
-            provider_type: Tipe provider: ``oauth2``, ``ldap``, ``saml``, ``proxy``,
-                atau ``radius``.
+            provider_type: Salah satu kunci tipe provider (``oauth2``, ``ldap``,
+                ``saml``, ``proxy``, ``radius``, ``scim``, ``rac``, ``ssf``,
+                ``wsfed``, ``google_workspace``, ``microsoft_entra``).
             name: Nama unik provider.
-            authorization_flow: UUID flow otorisasi.
+            authorization_flow: UUID flow otorisasi (wajib untuk sebagian besar tipe).
             invalidation_flow: UUID flow invalidasi (logout).
             redirect_uris: *(oauth2)* Daftar redirect URI yang diizinkan.
             acs_url: *(saml)* URL ACS (Assertion Consumer Service) SP.
             external_host: *(proxy)* URL host eksternal yang diproteksi.
-            extra_config: Field tambahan opsional sesuai tipe provider
-                (mis. ``client_id``, ``signing_kp``, ``base_dn``).
+            url: *(scim)* Base URL endpoint SCIM tujuan.
+            extra_config: Field tambahan sesuai tipe provider — termasuk field
+                wajib yang tidak punya parameter eksplisit (mis. ``signing_key``,
+                ``credentials``, ``client_id``, ``reply_url``, ``wtrealm``).
 
         Returns:
             Objek provider yang baru dibuat (termasuk ``pk``).
 
         Raises:
-            ValueError: Bila ``provider_type`` tidak dikenal atau field wajib
-                per tipe tidak lengkap.
+            ValueError: Bila ``provider_type`` tidak dikenal atau ada field wajib
+                per tipe yang belum terisi (baik dari parameter maupun ``extra_config``).
             AuthentikAPIError: 422 bila validasi Authentik gagal.
         """
         key = _validate_type(provider_type)
 
-        # Validasi field wajib per tipe.
-        missing: list[str] = []
-        if key == "oauth2" and redirect_uris is None:
-            missing.append("redirect_uris")
-        if key == "saml" and acs_url is None:
-            missing.append("acs_url")
-        if key == "proxy" and external_host is None:
-            missing.append("external_host")
-        if missing:
-            raise ValueError(f"Provider tipe {key!r} membutuhkan field: {', '.join(missing)}.")
-
-        payload: dict[str, Any] = {
-            "name": name,
+        payload: dict[str, Any] = {"name": name}
+        for field, value in {
             "authorization_flow": authorization_flow,
             "invalidation_flow": invalidation_flow,
-        }
-        if redirect_uris is not None:
-            payload["redirect_uris"] = redirect_uris
-        if acs_url is not None:
-            payload["acs_url"] = acs_url
-        if external_host is not None:
-            payload["external_host"] = external_host
+            "redirect_uris": redirect_uris,
+            "acs_url": acs_url,
+            "external_host": external_host,
+            "url": url,
+        }.items():
+            if value is not None:
+                payload[field] = value
         if extra_config:
             payload.update(extra_config)
+
+        # Validasi field wajib per tipe terhadap payload final.
+        missing = [f for f in _PROVIDER_REQUIRED[key] if f not in payload]
+        if missing:
+            raise ValueError(f"Provider tipe {key!r} membutuhkan field: {', '.join(missing)}.")
 
         return await client.post(_PROVIDER_PATHS[key], json=payload)
 
@@ -165,13 +192,15 @@ def register(mcp: FastMCP, client: AuthentikClient) -> None:
         redirect_uris: list[dict[str, Any]] | None = None,
         acs_url: str | None = None,
         external_host: str | None = None,
+        url: str | None = None,
         extra_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Perbarui sebagian field provider (PATCH). Hanya field non-None yang dikirim.
 
         Args:
-            provider_type: Tipe provider: ``oauth2``, ``ldap``, ``saml``, ``proxy``,
-                atau ``radius``.
+            provider_type: Salah satu kunci tipe provider (``oauth2``, ``ldap``,
+                ``saml``, ``proxy``, ``radius``, ``scim``, ``rac``, ``ssf``,
+                ``wsfed``, ``google_workspace``, ``microsoft_entra``).
             provider_id: pk numerik provider.
             name: Nama baru.
             authorization_flow: UUID flow otorisasi baru.
@@ -179,6 +208,7 @@ def register(mcp: FastMCP, client: AuthentikClient) -> None:
             redirect_uris: *(oauth2)* Daftar redirect URI baru.
             acs_url: *(saml)* URL ACS baru.
             external_host: *(proxy)* URL host eksternal baru.
+            url: *(scim)* Base URL endpoint SCIM baru.
             extra_config: Field tambahan opsional yang ingin diubah.
 
         Returns:
@@ -199,6 +229,7 @@ def register(mcp: FastMCP, client: AuthentikClient) -> None:
             "redirect_uris": redirect_uris,
             "acs_url": acs_url,
             "external_host": external_host,
+            "url": url,
         }.items():
             if value is not None:
                 payload[field] = value
@@ -218,8 +249,9 @@ def register(mcp: FastMCP, client: AuthentikClient) -> None:
         """Hapus provider secara permanen.
 
         Args:
-            provider_type: Tipe provider: ``oauth2``, ``ldap``, ``saml``, ``proxy``,
-                atau ``radius``.
+            provider_type: Salah satu kunci tipe provider (``oauth2``, ``ldap``,
+                ``saml``, ``proxy``, ``radius``, ``scim``, ``rac``, ``ssf``,
+                ``wsfed``, ``google_workspace``, ``microsoft_entra``).
             provider_id: pk numerik provider.
 
         Returns:

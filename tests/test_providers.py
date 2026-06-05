@@ -250,7 +250,7 @@ async def test_provider_create_invalid_type(mcp: FastMCP) -> None:
             mcp,
             "authentik_provider_create",
             {
-                "provider_type": "wsfed",
+                "provider_type": "unknown",
                 "name": "bad",
                 "authorization_flow": FLOW_UUID,
                 "invalidation_flow": INVAL_UUID,
@@ -373,6 +373,96 @@ async def test_provider_delete_invalid_type(mcp: FastMCP) -> None:
         await call_tool(
             mcp,
             "authentik_provider_delete",
-            {"provider_type": "wsfed", "provider_id": 1},
+            {"provider_type": "unknown", "provider_id": 1},
         )
     assert "provider_type tidak valid" in str(exc.value)
+
+
+# ---------------------------------------------------------------------------
+# Tipe provider tambahan (scim, rac, ssf, wsfed, google_workspace, microsoft_entra)
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+async def test_provider_create_scim(mcp: FastMCP) -> None:
+    route = respx.post(f"{API_BASE}/providers/scim/").mock(
+        return_value=httpx.Response(201, json={"pk": 20, "name": "scim-prov"})
+    )
+    data = await call_tool(
+        mcp,
+        "authentik_provider_create",
+        {
+            "provider_type": "scim",
+            "name": "scim-prov",
+            "url": "https://scim.example.com/v2",
+            "extra_config": {"token": "s3cr3t"},
+        },
+    )
+    assert data["pk"] == 20
+    body = json.loads(route.calls.last.request.content)
+    assert body["url"] == "https://scim.example.com/v2"
+    assert body["token"] == "s3cr3t"
+    assert "authorization_flow" not in body
+
+
+@respx.mock
+async def test_provider_create_rac(mcp: FastMCP) -> None:
+    route = respx.post(f"{API_BASE}/providers/rac/").mock(
+        return_value=httpx.Response(201, json={"pk": 21, "name": "rac-prov"})
+    )
+    data = await call_tool(
+        mcp,
+        "authentik_provider_create",
+        {
+            "provider_type": "rac",
+            "name": "rac-prov",
+            "authorization_flow": FLOW_UUID,
+        },
+    )
+    assert data["pk"] == 21
+    body = json.loads(route.calls.last.request.content)
+    assert body["authorization_flow"] == FLOW_UUID
+    assert "invalidation_flow" not in body
+
+
+@respx.mock
+async def test_provider_create_wsfed(mcp: FastMCP) -> None:
+    respx.post(f"{API_BASE}/providers/wsfed/").mock(
+        return_value=httpx.Response(201, json={"pk": 22, "name": "wsfed-prov"})
+    )
+    data = await call_tool(
+        mcp,
+        "authentik_provider_create",
+        {
+            "provider_type": "wsfed",
+            "name": "wsfed-prov",
+            "authorization_flow": FLOW_UUID,
+            "invalidation_flow": INVAL_UUID,
+            "extra_config": {
+                "reply_url": "https://sp.example.com/wsfed",
+                "wtrealm": "urn:example",
+            },
+        },
+    )
+    assert data["pk"] == 22
+
+
+async def test_provider_create_scim_missing_url(mcp: FastMCP) -> None:
+    with pytest.raises(Exception) as exc:
+        await call_tool(
+            mcp,
+            "authentik_provider_create",
+            {"provider_type": "scim", "name": "bad"},
+        )
+    assert "url" in str(exc.value)
+
+
+async def test_provider_create_microsoft_entra_missing_fields(mcp: FastMCP) -> None:
+    with pytest.raises(Exception) as exc:
+        await call_tool(
+            mcp,
+            "authentik_provider_create",
+            {"provider_type": "microsoft_entra", "name": "bad"},
+        )
+    msg = str(exc.value)
+    assert "client_id" in msg and "tenant_id" in msg

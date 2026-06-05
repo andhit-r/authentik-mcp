@@ -21,6 +21,17 @@ _POLICY_PATHS: dict[str, str] = {
     "password_expiry": "/policies/password_expiry/",
     "reputation": "/policies/reputation/",
     "event_matcher": "/policies/event_matcher/",
+    "dummy": "/policies/dummy/",
+    "geoip": "/policies/geoip/",
+    "unique_password": "/policies/unique_password/",
+}
+
+# Field wajib di payload create per tipe (selain ``name`` yang selalu wajib).
+# Dapat berasal dari parameter eksplisit maupun ``extra_config``.
+_POLICY_REQUIRED: dict[str, list[str]] = {
+    "expression": ["expression"],
+    "password_expiry": ["days"],
+    "geoip": ["countries"],
 }
 
 
@@ -71,7 +82,8 @@ def register(mcp: FastMCP, client: AuthentikClient) -> None:
 
         Args:
             policy_type: Tipe policy: ``expression``, ``password``,
-                ``password_expiry``, ``reputation``, atau ``event_matcher``.
+                ``password_expiry``, ``reputation``, ``event_matcher``, ``dummy``,
+                ``geoip``, atau ``unique_password``.
             policy_uuid: UUID policy.
 
         Returns:
@@ -90,24 +102,30 @@ def register(mcp: FastMCP, client: AuthentikClient) -> None:
         name: str,
         expression: str | None = None,
         days: int | None = None,
+        countries: list[str] | None = None,
         extra_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Buat policy baru.
+        """Buat policy baru sesuai tipenya.
 
-        Field wajib bervariasi per tipe:
+        Field wajib bervariasi per tipe (selain ``name`` yang selalu wajib):
 
         - **expression**: ``expression`` wajib — kode Python yang dievaluasi.
         - **password_expiry**: ``days`` wajib — masa berlaku password (hari).
-        - **password** / **reputation** / **event_matcher**: tidak ada field
-          tambahan yang wajib; gunakan ``extra_config`` untuk konfigurasi
-          spesifik (mis. ``length_min``, ``threshold``, ``action``).
+        - **geoip**: ``countries`` wajib — daftar kode negara ISO-3166 (mis.
+          ``["ID", "SG"]``).
+        - **password** / **reputation** / **event_matcher** / **dummy** /
+          **unique_password**: tidak ada field tambahan yang wajib; gunakan
+          ``extra_config`` untuk konfigurasi spesifik (mis. ``length_min``,
+          ``threshold``, ``action``).
 
         Args:
             policy_type: Tipe policy: ``expression``, ``password``,
-                ``password_expiry``, ``reputation``, atau ``event_matcher``.
+                ``password_expiry``, ``reputation``, ``event_matcher``, ``dummy``,
+                ``geoip``, atau ``unique_password``.
             name: Nama unik policy.
             expression: *(expression)* Kode Python policy.
             days: *(password_expiry)* Jumlah hari sebelum password kedaluwarsa.
+            countries: *(geoip)* Daftar kode negara ISO-3166 alpha-2.
             extra_config: Field opsional tambahan sesuai tipe
                 (mis. ``length_min``, ``amount_digits``, ``check_ip``,
                 ``threshold``, ``action``, ``execution_logging``).
@@ -122,21 +140,20 @@ def register(mcp: FastMCP, client: AuthentikClient) -> None:
         """
         key = _validate_policy_type(policy_type)
 
-        missing: list[str] = []
-        if key == "expression" and expression is None:
-            missing.append("expression")
-        if key == "password_expiry" and days is None:
-            missing.append("days")
-        if missing:
-            raise ValueError(f"Policy tipe {key!r} membutuhkan field: {', '.join(missing)}.")
-
         payload: dict[str, Any] = {"name": name}
-        if expression is not None:
-            payload["expression"] = expression
-        if days is not None:
-            payload["days"] = days
+        for field, value in {
+            "expression": expression,
+            "days": days,
+            "countries": countries,
+        }.items():
+            if value is not None:
+                payload[field] = value
         if extra_config:
             payload.update(extra_config)
+
+        missing = [f for f in _POLICY_REQUIRED.get(key, []) if f not in payload]
+        if missing:
+            raise ValueError(f"Policy tipe {key!r} membutuhkan field: {', '.join(missing)}.")
 
         return await client.post(_POLICY_PATHS[key], json=payload)
 
@@ -147,17 +164,20 @@ def register(mcp: FastMCP, client: AuthentikClient) -> None:
         name: str | None = None,
         expression: str | None = None,
         days: int | None = None,
+        countries: list[str] | None = None,
         extra_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Perbarui sebagian field policy (PATCH). Hanya field non-None yang dikirim.
 
         Args:
             policy_type: Tipe policy: ``expression``, ``password``,
-                ``password_expiry``, ``reputation``, atau ``event_matcher``.
+                ``password_expiry``, ``reputation``, ``event_matcher``, ``dummy``,
+                ``geoip``, atau ``unique_password``.
             policy_uuid: UUID policy.
             name: Nama baru.
             expression: *(expression)* Kode Python baru.
             days: *(password_expiry)* Jumlah hari baru.
+            countries: *(geoip)* Daftar kode negara ISO-3166 baru.
             extra_config: Field opsional tambahan yang ingin diubah.
 
         Returns:
@@ -175,6 +195,7 @@ def register(mcp: FastMCP, client: AuthentikClient) -> None:
             "name": name,
             "expression": expression,
             "days": days,
+            "countries": countries,
         }.items():
             if value is not None:
                 payload[field] = value

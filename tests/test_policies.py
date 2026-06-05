@@ -207,7 +207,7 @@ async def test_policy_create_invalid_type(mcp: FastMCP) -> None:
         await call_tool(
             mcp,
             "authentik_policy_create",
-            {"policy_type": "geoip", "name": "bad"},
+            {"policy_type": "unknown", "name": "bad"},
         )
     assert "policy_type tidak valid" in str(exc.value)
 
@@ -471,3 +471,50 @@ async def test_policy_binding_delete(mcp: FastMCP) -> None:
     data = await call_tool(mcp, "authentik_policy_binding_delete", {"binding_uuid": BINDING_UUID})
     assert data["status"] == "deleted"
     assert data["binding_uuid"] == BINDING_UUID
+
+
+# ---------------------------------------------------------------------------
+# Tipe policy tambahan (geoip, dummy, unique_password)
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+async def test_policy_create_geoip(mcp: FastMCP) -> None:
+    route = respx.post(f"{API_BASE}/policies/geoip/").mock(
+        return_value=httpx.Response(201, json={"pk": POLICY_UUID, "name": "geo-pol"})
+    )
+    data = await call_tool(
+        mcp,
+        "authentik_policy_create",
+        {
+            "policy_type": "geoip",
+            "name": "geo-pol",
+            "countries": ["ID", "SG"],
+        },
+    )
+    assert data["pk"] == POLICY_UUID
+    body = json.loads(route.calls.last.request.content)
+    assert body["countries"] == ["ID", "SG"]
+
+
+@respx.mock
+async def test_policy_create_dummy(mcp: FastMCP) -> None:
+    respx.post(f"{API_BASE}/policies/dummy/").mock(
+        return_value=httpx.Response(201, json={"pk": POLICY_UUID, "name": "dummy-pol"})
+    )
+    data = await call_tool(
+        mcp,
+        "authentik_policy_create",
+        {"policy_type": "dummy", "name": "dummy-pol"},
+    )
+    assert data["pk"] == POLICY_UUID
+
+
+async def test_policy_create_geoip_missing_countries(mcp: FastMCP) -> None:
+    with pytest.raises(Exception) as exc:
+        await call_tool(
+            mcp,
+            "authentik_policy_create",
+            {"policy_type": "geoip", "name": "bad"},
+        )
+    assert "countries" in str(exc.value)

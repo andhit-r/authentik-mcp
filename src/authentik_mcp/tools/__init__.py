@@ -12,6 +12,7 @@ from fastmcp import FastMCP
 from ..client import AuthentikClient
 from . import (
     applications,
+    crypto,
     events,
     flows,
     groups,
@@ -20,6 +21,7 @@ from . import (
     property_mappings,
     providers,
     roles,
+    system,
     tokens,
     users,
 )
@@ -32,11 +34,13 @@ _MODULES = [
     applications,
     providers,
     policies,
+    property_mappings,
+    crypto,
     tokens,
     events,
     flows,
-    property_mappings,
     outposts,
+    system,
 ]
 
 
