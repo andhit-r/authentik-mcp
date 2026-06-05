@@ -42,7 +42,8 @@ jobs:
         run: |
           gh release create "${GITHUB_REF_NAME}" \
             --title "${GITHUB_REF_NAME}" \
-            --generate-notes
+            --generate-notes \
+            --clobber
 
   docker-image:
     name: Build & Publish Image (GHCR)
