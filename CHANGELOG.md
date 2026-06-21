@@ -7,6 +7,14 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ---
 
+## [1.7.0] - 2026-06-21
+
+### Ditambahkan
+- **Flow CRUD** — tool `authentik_flow_create`, `authentik_flow_update`, dan `authentik_flow_delete` untuk membuat, memperbarui, dan menghapus flow Authentik. Melengkapi tool `list`, `get`, dan `execute` yang sudah ada sebelumnya.
+- Test untuk ketiga tool baru (happy path create, update, update tanpa field, delete) di `test_other_tools.py`.
+
+---
+
 ## [1.6.0] - 2026-06-05
 
 ### Ditambahkan

@@ -115,6 +115,72 @@ async def test_flow_execute(mcp: FastMCP) -> None:
     assert data["component"] == "ak-stage-identification"
 
 
+@respx.mock
+async def test_flow_create(mcp: FastMCP) -> None:
+    route = respx.post(f"{API_BASE}/flows/instances/").mock(
+        return_value=httpx.Response(
+            201,
+            json={
+                "slug": "my-auth-flow",
+                "name": "My Auth Flow",
+                "title": "Masuk ke Akun Anda",
+                "designation": "authentication",
+            },
+        )
+    )
+    data = await call_tool(
+        mcp,
+        "authentik_flow_create",
+        {
+            "name": "My Auth Flow",
+            "slug": "my-auth-flow",
+            "title": "Masuk ke Akun Anda",
+            "designation": "authentication",
+        },
+    )
+    assert data["slug"] == "my-auth-flow"
+    assert data["designation"] == "authentication"
+    body = route.calls.last.request
+    import json as _json
+
+    sent = _json.loads(body.content)
+    assert sent["policy_engine_mode"] == "any"
+    assert sent["authentication"] == "none"
+
+
+@respx.mock
+async def test_flow_update(mcp: FastMCP) -> None:
+    route = respx.patch(f"{API_BASE}/flows/instances/my-auth-flow/").mock(
+        return_value=httpx.Response(200, json={"slug": "my-auth-flow", "title": "Login Baru"})
+    )
+    data = await call_tool(
+        mcp,
+        "authentik_flow_update",
+        {"slug": "my-auth-flow", "title": "Login Baru"},
+    )
+    assert data["title"] == "Login Baru"
+    import json as _json
+
+    sent = _json.loads(route.calls.last.request.content)
+    assert sent == {"title": "Login Baru"}
+
+
+@respx.mock
+async def test_flow_update_no_fields(mcp: FastMCP) -> None:
+    with pytest.raises(Exception):
+        await call_tool(mcp, "authentik_flow_update", {"slug": "my-auth-flow"})
+
+
+@respx.mock
+async def test_flow_delete(mcp: FastMCP) -> None:
+    respx.delete(f"{API_BASE}/flows/instances/my-auth-flow/").mock(
+        return_value=httpx.Response(204)
+    )
+    data = await call_tool(mcp, "authentik_flow_delete", {"slug": "my-auth-flow"})
+    assert data["status"] == "deleted"
+    assert data["slug"] == "my-auth-flow"
+
+
 # --- Property Mappings ---
 @respx.mock
 async def test_property_mapping_list(mcp: FastMCP) -> None:
