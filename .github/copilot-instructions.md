@@ -1,7 +1,6 @@
-# Copilot Instructions — authentik-mcp
+# CLAUDE.md
 
-Panduan ini membantu GitHub Copilot (dan asisten AI lain) memahami dan
-berkontribusi pada repositori ini secara konsisten.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Ringkasan Proyek
 
@@ -30,15 +29,34 @@ Server mengekspos tool per domain Authentik dan dapat dilindungi dengan OAuth
 
 ```
 src/authentik_mcp/
-  config.py     -> Settings (env), get_settings()
-  client.py     -> AuthentikClient (httpx async) + AuthentikAPIError
-  auth.py       -> build_token_verifier() (IntrospectionTokenVerifier)
-  docs.py       -> rute /docs, /openapi.json, /health
-  server.py     -> create_server(), run()
-  logging.py    -> configure_logging(), get_logger()
-  tools/        -> satu modul per domain; tiap modul punya register(mcp, client)
-tests/          -> pytest + respx (mock HTTP), terpisah dari source
+  config.py          -> Settings (env vars via pydantic-settings), get_settings()
+  client.py          -> AuthentikClient (httpx async) + AuthentikAPIError
+  auth.py            -> build_token_verifier() — memilih auth mode berdasar config
+  auth_provider.py   -> AuthentikProvider (OAuthProxy subclass, mode OAuth Proxy)
+  docs.py            -> rute /docs, /openapi.json, /health
+  server.py          -> create_server(), run()
+  logging.py         -> configure_logging(), get_logger()
+  tools/             -> satu modul per domain; tiap modul punya register(mcp, client)
+    __init__.py      -> register_all(); daftar _MODULES menentukan urutan registrasi
+tests/               -> pytest + respx (mock HTTP), terpisah dari source
 ```
+
+## Arsitektur Auth (3 Mode, Dipilih Otomatis)
+
+`build_token_verifier()` di `auth.py` memilih mode berdasarkan env vars yang tersedia:
+
+1. **AuthentikProvider** (direkomendasikan untuk Claude.ai): MCP server mengekspos
+   endpoint OAuth sendiri + Dynamic Client Registration. Claude mendaftar otomatis,
+   pengguna cukup login di Authentik. Aktif bila `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`,
+   domain publik Authentik (dari `OAUTH_OIDC_CONFIG_URL` atau `AUTHENTIK_OAUTH_DOMAIN`),
+   slug provider, dan `MCP_BASE_URL` terisi.
+2. **OIDCProxy**: proxy berbasis OIDC discovery; token divalidasi via introspeksi.
+3. **IntrospectionTokenVerifier**: fallback — hanya memvalidasi Bearer token yang
+   sudah dipegang client (RFC 7662).
+4. **None**: tanpa autentikasi (lokal/stdio).
+
+Whitelist username per `AUTHENTIK_ALLOWED_USERNAMES` hanya berlaku di mode
+AuthentikProvider (diperiksa via userinfo endpoint saat pertukaran kode).
 
 ## Konvensi Kode
 
@@ -79,6 +97,14 @@ make check        # build → lint → test (simulasi penuh CI — wajib sebelum
 make build-test   # hanya build image test
 make lint         # hanya ruff check + format check
 make test         # hanya pytest
+```
+
+Untuk menjalankan satu file test atau satu fungsi tertentu, jalankan langsung
+via Docker (image harus sudah dibangun dengan `make build-test`):
+
+```bash
+docker run --rm authentik-mcp:test pytest tests/test_users.py
+docker run --rm authentik-mcp:test pytest tests/test_users.py::test_user_list_ok
 ```
 
 - Semua HTTP call ke Authentik **harus di-mock** (`respx`). Jangan pernah
