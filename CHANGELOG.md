@@ -9,6 +9,10 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+---
+
+## [1.8.0] - 2026-11-02
+
 ### Diubah
 - **Rilis image multi-arch** — job `docker-image` di `release.yml` dimigrasi ke reusable workflow `andhit-r/release-docker-image-ghcr` (`ghcr.yml@v2`) dengan `platforms: linux/amd64,linux/arm64`, agar image GHCR dapat berjalan di node SBC ARM (Docker Swarm). Lihat Andhit-s-To-Do-List/shared-infra-support#23.
 - Tag image `:<major>` (mis. `:1`) dan cache `type=gha` tidak lagi dihasilkan; tag `{{version}}`, `{{major}}.{{minor}}`, dan `latest` tetap.
