@@ -7,6 +7,7 @@ import httpx
 import pytest
 import respx
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 
 from tests.conftest import API_BASE, call_tool
 
@@ -167,15 +168,13 @@ async def test_flow_update(mcp: FastMCP) -> None:
 
 @respx.mock
 async def test_flow_update_no_fields(mcp: FastMCP) -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(ToolError, match="Tidak ada field yang diberikan untuk diperbarui."):
         await call_tool(mcp, "authentik_flow_update", {"slug": "my-auth-flow"})
 
 
 @respx.mock
 async def test_flow_delete(mcp: FastMCP) -> None:
-    respx.delete(f"{API_BASE}/flows/instances/my-auth-flow/").mock(
-        return_value=httpx.Response(204)
-    )
+    respx.delete(f"{API_BASE}/flows/instances/my-auth-flow/").mock(return_value=httpx.Response(204))
     data = await call_tool(mcp, "authentik_flow_delete", {"slug": "my-auth-flow"})
     assert data["status"] == "deleted"
     assert data["slug"] == "my-auth-flow"
