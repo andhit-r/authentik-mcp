@@ -35,6 +35,7 @@ class Settings(BaseSettings):
         authentik_api_token: API Token Authentik untuk header ``Authorization: Bearer``.
         authentik_timeout: Timeout (detik) tiap request ke Authentik API.
         authentik_verify_ssl: Apakah memverifikasi sertifikat TLS Authentik.
+        mcp_api_key: API key statis (Bearer) untuk akses HTTP tanpa/serta OAuth.
         oauth_introspection_url: Endpoint introspection OAuth Authentik
             (``/application/o/introspect/``). Kosong = autentikasi MCP dinonaktifkan.
         oauth_client_id: Client ID OAuth provider untuk introspeksi token.
@@ -93,6 +94,15 @@ class Settings(BaseSettings):
     # user yang berhasil login di Authentik diizinkan.
     authentik_allowed_usernames: str = Field(default="")
 
+    # --- API key statis untuk akses HTTP (Bearer) ---
+    mcp_api_key: SecretStr = Field(
+        default=SecretStr(""),
+        description=(
+            "API key statis (Bearer) untuk klien non-OAuth. Kosong/spasi saja = "
+            "tidak diset. Tidak pernah di-log."
+        ),
+    )
+
     # --- Runtime MCP ---
     mcp_transport: str = Field(default="http")
     mcp_host: str = Field(default="0.0.0.0")
@@ -129,6 +139,11 @@ class Settings(BaseSettings):
     def api_base_url(self) -> str:
         """URL dasar REST API Authentik (v3), mis. ``https://auth.example.com/api/v3``."""
         return f"{self.authentik_url}/api/v3"
+
+    @property
+    def api_key_enabled(self) -> bool:
+        """``True`` bila ``MCP_API_KEY`` terisi (bukan kosong/spasi saja)."""
+        return bool(self.mcp_api_key.get_secret_value().strip())
 
     @property
     def oidc_proxy_enabled(self) -> bool:

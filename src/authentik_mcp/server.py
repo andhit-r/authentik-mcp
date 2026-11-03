@@ -76,11 +76,20 @@ def run(settings: Settings | None = None) -> None:
         settings: Konfigurasi opsional. Bila ``None``, dimuat dari environment.
 
     Raises:
-        ValueError: Bila konfigurasi wajib belum lengkap.
+        ValueError: Bila konfigurasi wajib belum lengkap, atau transport HTTP
+            dipilih tanpa auth apa pun (gagal-tertutup: ``MCP_API_KEY`` maupun
+            konfigurasi OAuth kosong).
     """
     settings = settings or get_settings()
     configure_logging(settings.mcp_log_level)
     mcp = create_server(settings)
+
+    if settings.mcp_transport != "stdio" and mcp.auth is None:
+        raise ValueError(
+            "Transport HTTP menolak start tanpa autentikasi. Set MCP_API_KEY "
+            "dan/atau konfigurasi OAuth (OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET, "
+            "OAUTH_OIDC_CONFIG_URL, MCP_BASE_URL)."
+        )
 
     if settings.mcp_transport == "stdio":
         logger.info("Menjalankan transport stdio.")

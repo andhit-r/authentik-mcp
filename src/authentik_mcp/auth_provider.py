@@ -27,9 +27,11 @@ dipakai untuk JWKS, issuer, dan end-session.
 
 from __future__ import annotations
 
+import hmac
 from typing import Any
 
 import httpx
+from fastmcp.server.auth import AccessToken, TokenVerifier
 from fastmcp.server.auth.oauth_proxy.proxy import OAuthProxy
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 from mcp.server.auth.provider import TokenError
@@ -172,3 +174,51 @@ class AuthentikProvider(OAuthProxy):
             "sub": userinfo.get("sub"),
             "groups": userinfo.get("groups", []),
         }
+
+
+class BearerApiKeyVerifier(TokenVerifier):
+    """Verifier Bearer token statis (API key) untuk klien non-OAuth.
+
+    Token valid bila persis sama dengan ``MCP_API_KEY``. Perbandingan memakai
+    :func:`hmac.compare_digest` (waktu konstan) pada bytes UTF-8. API key tidak
+    membawa scope, sehingga ``required_scopes`` kosong.
+
+    Args:
+        api_key: API key statis; wajib non-kosong.
+
+    Raises:
+        ValueError: Bila ``api_key`` kosong atau hanya spasi.
+    """
+
+    def __init__(self, *, api_key: str) -> None:
+        """Inisialisasi verifier dan simpan API key.
+
+        Memanggil ``super().__init__()`` agar atribut ``required_scopes``
+        terbentuk (regresi andhit-r/odoo8-mcp#6).
+
+        Args:
+            api_key: API key statis; wajib non-kosong.
+
+        Raises:
+            ValueError: Bila ``api_key`` kosong atau hanya spasi.
+        """
+        if not api_key or not api_key.strip():
+            raise ValueError("api_key tidak boleh kosong")
+        super().__init__()
+        self._api_key = api_key.encode("utf-8")
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        """Verifikasi Bearer token terhadap API key.
+
+        Args:
+            token: Token dari header ``Authorization: Bearer``.
+
+        Returns:
+            ``AccessToken`` (``client_id="api-key-client"``, tanpa scope) bila
+            cocok; ``None`` bila token kosong atau salah.
+        """
+        if not token:
+            return None
+        if hmac.compare_digest(token.encode("utf-8"), self._api_key):
+            return AccessToken(token=token, client_id="api-key-client", scopes=[])
+        return None

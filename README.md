@@ -96,6 +96,7 @@ Salin `.env.example` menjadi `.env` lalu isi nilainya. Variabel utama:
 | `AUTHENTIK_API_TOKEN` | ✅ | API Token Authentik (dikirim sebagai `Authorization: Bearer`) |
 | `AUTHENTIK_TIMEOUT` | – | Timeout request (detik), default `30` |
 | `AUTHENTIK_VERIFY_SSL` | – | Verifikasi TLS Authentik, default `true` |
+| `MCP_API_KEY` | – | API key statis (Bearer) untuk akses HTTP. Bisa dipakai sendiri atau digabung dengan OAuth (`MultiAuth`). Kosong/spasi saja = tidak diset; nilainya tak pernah di-log. Diabaikan pada `stdio` |
 | `OAUTH_CLIENT_ID` | – | Client ID OAuth provider Authentik (sisi server) |
 | `OAUTH_CLIENT_SECRET` | – | Client Secret OAuth provider Authentik (sisi server) |
 | `OAUTH_OIDC_CONFIG_URL` | – | OIDC discovery URL; domain & slug provider di-derive otomatis dari sini |
@@ -117,8 +118,24 @@ Salin `.env.example` menjadi `.env` lalu isi nilainya. Variabel utama:
 > ℹ️ **Mode OAuth Proxy (login via Authentik)** aktif bila `OAUTH_CLIENT_ID`,
 > `OAUTH_CLIENT_SECRET`, domain publik Authentik (dari `OAUTH_OIDC_CONFIG_URL`
 > atau `AUTHENTIK_OAUTH_DOMAIN`), slug provider, dan `MCP_BASE_URL` terisi.
-> Bila tak lengkap, server mundur ke introspeksi; bila itu pun kosong, server
-> berjalan **tanpa autentikasi** (hanya untuk pengembangan lokal).
+> Bila tak lengkap, server mundur ke introspeksi.
+
+> 🔐 **Mode auth & gagal-tertutup (transport `http`).** Server HTTP **menolak
+> start** (`ValueError`, exit code 1) bila tidak ada auth sama sekali — set
+> `MCP_API_KEY` dan/atau konfigurasi OAuth. Mode yang tersedia:
+>
+> | Konfigurasi | Hasil |
+> |---|---|
+> | Hanya `MCP_API_KEY` | Bearer API key statis (`MultiAuth` dengan satu verifier) |
+> | OAuth saja | OAuth Proxy / OIDCProxy / introspeksi (urutan prioritas lama) |
+> | OAuth + `MCP_API_KEY` | Keduanya diterima (`MultiAuth`); connector OAuth tetap jalan |
+>
+> Request MCP tanpa header `Authorization: Bearer …` yang sah dijawab **401**;
+> `GET /health` tetap terbuka (dipakai healthcheck container/Swarm). Transport
+> `stdio` tidak memerlukan auth.
+>
+> Contoh akses dengan API key:
+> `curl -H "Authorization: Bearer $MCP_API_KEY" https://mcp.example.com/mcp ...`
 
 ## Menjalankan
 

@@ -9,6 +9,12 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Ditambahkan
+- **Mode auth API key statis** — env `MCP_API_KEY` (Bearer) lewat `BearerApiKeyVerifier` (perbandingan waktu konstan `hmac.compare_digest`). Dapat dipakai sendiri atau digabung dengan OAuth lewat `MultiAuth`. Lihat Andhit-s-To-Do-List/shared-infra-support#53.
+
+### Diubah
+- **Transport `http` gagal-tertutup** — `run()` melempar `ValueError` (exit code 1) bila tidak ada auth sama sekali (tanpa `MCP_API_KEY` maupun OAuth), sehingga server tidak lagi berjalan tanpa autentikasi. `/health` tetap terbuka; `stdio` tidak berubah.
+
 ---
 
 ## [1.8.0] - 2026-11-02

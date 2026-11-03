@@ -17,7 +17,15 @@ berdasarkan konfigurasi, dengan urutan prioritas:
 3. **IntrospectionTokenVerifier** (fallback): hanya memvalidasi Bearer token
    yang sudah dipegang client.
 
-4. **None**: bila tidak ada konfigurasi OAuth (tanpa autentikasi — lokal/stdio).
+Selain itu, **API key statis** (``MCP_API_KEY``, Bearer) dapat diaktifkan
+sendiri atau digabung dengan mode di atas lewat ``MultiAuth``: mode OAuth yang
+terpilih menjadi ``server`` (OAuth Proxy / OIDCProxy) atau masuk ``verifiers``
+(introspection), dan API key selalu masuk ``verifiers``. Hanya API key →
+``MultiAuth(verifiers=[...])``.
+
+4. **None**: bila tidak ada konfigurasi auth sama sekali (hanya sah untuk
+   stdio; transport HTTP menolak start tanpa auth — lihat
+   :func:`authentik_mcp.server.run`).
 """
 
 from __future__ import annotations
@@ -38,22 +46,52 @@ def build_token_verifier(settings: Settings):
         settings: Konfigurasi aplikasi.
 
     Returns:
-        AuthentikProvider, OIDCProxy, IntrospectionTokenVerifier, atau None.
+        AuthentikProvider, OIDCProxy, IntrospectionTokenVerifier, ``MultiAuth``
+        (bila ``MCP_API_KEY`` diset), atau None.
     """
+    oauth = None
     if settings.oauth_proxy_enabled:
-        return _build_oauth_proxy(settings)
+        oauth = _build_oauth_proxy(settings)
+    elif settings.oidc_proxy_enabled:
+        oauth = _build_oidc_proxy(settings)
+    elif settings.oauth_enabled:
+        oauth = _build_introspection_verifier(settings)
 
-    if settings.oidc_proxy_enabled:
-        return _build_oidc_proxy(settings)
+    if not settings.api_key_enabled:
+        return oauth
 
-    if settings.oauth_enabled:
-        return _build_introspection_verifier(settings)
+    return _combine_with_api_key(settings, oauth)
 
-    logger.warning(
-        "Konfigurasi OAuth tidak lengkap — MCP server berjalan TANPA "
-        "autentikasi. Jangan gunakan mode ini di produksi."
+
+def _combine_with_api_key(settings: Settings, oauth):
+    """Gabungkan API key statis dengan mode OAuth terpilih lewat ``MultiAuth``.
+
+    Args:
+        settings: Konfigurasi aplikasi (``MCP_API_KEY`` harus terisi).
+        oauth: Hasil mode OAuth (provider OAuth, verifier introspection, atau
+            ``None`` bila tak ada OAuth).
+
+    Returns:
+        ``MultiAuth``: provider OAuth menjadi ``server``; verifier introspection
+        dan API key masuk ``verifiers``.
+    """
+    from fastmcp.server.auth import MultiAuth, TokenVerifier
+
+    from .auth_provider import BearerApiKeyVerifier
+
+    verifiers: list[TokenVerifier] = []
+    server = None
+    if isinstance(oauth, TokenVerifier):
+        verifiers.append(oauth)
+    elif oauth is not None:
+        server = oauth
+    verifiers.append(BearerApiKeyVerifier(api_key=settings.mcp_api_key.get_secret_value().strip()))
+
+    logger.info(
+        "Autentikasi MCP aktif: API key statis (Bearer)%s.",
+        " + OAuth" if oauth is not None else "",
     )
-    return None
+    return MultiAuth(server=server, verifiers=verifiers)
 
 
 def _build_oauth_proxy(settings: Settings):
