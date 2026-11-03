@@ -9,6 +9,10 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+---
+
+## [1.9.0] - 2026-11-03
+
 ### Ditambahkan
 - **Mode auth API key statis** — env `MCP_API_KEY` (Bearer) lewat `BearerApiKeyVerifier` (perbandingan waktu konstan `hmac.compare_digest`). Dapat dipakai sendiri atau digabung dengan OAuth lewat `MultiAuth`. Lihat Andhit-s-To-Do-List/shared-infra-support#53.
 
