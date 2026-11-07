@@ -72,7 +72,8 @@ Konfigurasi tidak pernah di-hardcode — seluruhnya dari environment variable.
 | **Users** | `authentik_user_list`, `authentik_user_get`, `authentik_user_create`, `authentik_user_update`, `authentik_user_delete`, `authentik_user_set_password`, `authentik_user_activate`, `authentik_user_deactivate` |
 | **Groups** | `authentik_group_list`, `authentik_group_get`, `authentik_group_create`, `authentik_group_update`, `authentik_group_delete`, `authentik_group_add_member`, `authentik_group_remove_member` |
 | **Roles / RBAC** | `authentik_role_list/get/create/update/delete/used_by`, `authentik_rbac_permission_list`, `authentik_rbac_role_*_permission`, `authentik_rbac_user_*_permission` |
-| **Applications** | `authentik_application_list`, `authentik_application_get`, `authentik_application_create`, `authentik_application_update`, `authentik_application_delete` |
+| **Applications** | `authentik_application_list` (opsi `superuser_full_list`), `authentik_application_get`, `authentik_application_create`, `authentik_application_update`, `authentik_application_delete` |
+| **Sources (baca-saja)** | `authentik_source_list`, `authentik_source_oauth_list`, `authentik_source_oauth_get`, `authentik_source_connection_list` — `consumer_secret` tidak pernah dikembalikan |
 | **Providers** | `authentik_provider_list/get/create/update/delete` — CRUD per tipe: OAuth2, LDAP, SAML, Proxy, Radius, SCIM, RAC, SSF, WS-Federation, Google Workspace, Microsoft Entra |
 | **Policies** | `authentik_policy_list/get/create/update/delete/test` — tipe: expression, password, password_expiry, reputation, event_matcher, dummy, geoip, unique_password — plus `authentik_policy_binding_*` |
 | **Property Mappings** | `authentik_property_mapping_list/get/create/update/delete/test` — tipe provider (scope/saml/scim/rac/radius/google_workspace/microsoft_entra), source (ldap/oauth/plex/saml/scim/kerberos/telegram), notification |

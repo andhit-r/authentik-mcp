@@ -26,6 +26,7 @@ def register(mcp: FastMCP, client: AuthentikClient) -> None:
         name: str | None = None,
         page: int = 1,
         page_size: int = 50,
+        superuser_full_list: bool = False,
     ) -> dict[str, Any]:
         """Daftar application dengan filter dan paginasi.
 
@@ -34,6 +35,11 @@ def register(mcp: FastMCP, client: AuthentikClient) -> None:
             name: Filter persis berdasarkan nama.
             page: Nomor halaman.
             page_size: Jumlah item per halaman.
+            superuser_full_list: Bila ``True``, minta daftar lengkap tanpa filter
+                akses pemanggil (query ``superuser_full_list=true``). Tanpa ini API
+                menyaring ``results`` menurut akses pemanggil sehingga
+                ``pagination.count`` bisa lebih besar daripada jumlah ``results``.
+                Bawaan ``False``: parameter tidak dikirim.
 
         Returns:
             Objek paginasi berisi ``results`` (daftar application) dan ``pagination``.
@@ -41,12 +47,14 @@ def register(mcp: FastMCP, client: AuthentikClient) -> None:
         Raises:
             AuthentikAPIError: Bila request gagal.
         """
-        params = {
+        params: dict[str, Any] = {
             "search": search,
             "name": name,
             "page": page,
             "page_size": page_size,
         }
+        if superuser_full_list:
+            params["superuser_full_list"] = "true"
         return await client.get("/core/applications/", params=params)
 
     @mcp.tool(tags={"applications"})

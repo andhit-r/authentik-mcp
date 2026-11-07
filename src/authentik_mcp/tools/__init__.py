@@ -21,6 +21,7 @@ from . import (
     property_mappings,
     providers,
     roles,
+    sources,
     system,
     tokens,
     users,
@@ -40,6 +41,7 @@ _MODULES = [
     events,
     flows,
     outposts,
+    sources,
     system,
 ]
 

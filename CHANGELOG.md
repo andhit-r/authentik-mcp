@@ -9,6 +9,10 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Ditambahkan
+- Tool baca-saja source OAuth: `authentik_source_list`, `authentik_source_oauth_list`, `authentik_source_oauth_get`, `authentik_source_connection_list` (`consumer_secret` dibuang dari keluaran).
+- Parameter `superuser_full_list` (bawaan `False`) pada `authentik_application_list` untuk daftar aplikasi lengkap.
+
 ---
 
 ## [1.9.0] - 2026-11-03
