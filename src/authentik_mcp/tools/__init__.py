@@ -12,6 +12,7 @@ from fastmcp import FastMCP
 from ..client import AuthentikClient
 from . import (
     applications,
+    authenticators,
     crypto,
     events,
     flows,
@@ -22,6 +23,7 @@ from . import (
     providers,
     roles,
     sources,
+    stages,
     system,
     tokens,
     users,
@@ -42,6 +44,8 @@ _MODULES = [
     flows,
     outposts,
     sources,
+    stages,
+    authenticators,
     system,
 ]
 

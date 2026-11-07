@@ -80,7 +80,9 @@ Konfigurasi tidak pernah di-hardcode — seluruhnya dari environment variable.
 | **Crypto / Sertifikat** | `authentik_certificate_list/get/create/generate/update/delete/view/view_private_key` |
 | **Tokens** | `authentik_token_list`, `authentik_token_get`, `authentik_token_create`, `authentik_token_revoke` |
 | **Events/Logs** | `authentik_event_list`, `authentik_event_get`, `authentik_event_filter_by_action`, `authentik_event_filter_by_user` |
-| **Flows** | `authentik_flow_list`, `authentik_flow_get`, `authentik_flow_execute` |
+| **Flows** | `authentik_flow_list`, `authentik_flow_get`, `authentik_flow_execute`, `authentik_flow_binding_list`, `authentik_flow_binding_get` |
+| **Stages (baca-saja)** | `authentik_stage_list`, `authentik_stage_identification_get`, `authentik_stage_authenticator_validate_get` |
+| **Device MFA (baca-saja)** | `authentik_authenticator_admin_list` — metadata device saja |
 | **Outposts** | `authentik_outpost_list`, `authentik_outpost_get`, `authentik_outpost_update`, `authentik_outpost_health` |
 | **System / Admin** | `authentik_system_info`, `authentik_system_version`, `authentik_system_apps`, `authentik_system_models`, `authentik_system_settings_get`, `authentik_system_settings_update`, `authentik_system_version_history` |
 

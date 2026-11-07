@@ -1,6 +1,7 @@
 """Tool MCP untuk mengelola Flow Authentik (endpoint ``/flows/``).
 
-Mendaftarkan tool: list, get, create, update, delete, dan execute (memulai eksekusi flow).
+Mendaftarkan tool: list, get, create, update, delete, dan execute (memulai eksekusi flow),
+serta tool baca-saja binding flow-stage (``authentik_flow_binding_list``/``_get``).
 """
 
 from __future__ import annotations
@@ -65,6 +66,45 @@ def register(mcp: FastMCP, client: AuthentikClient) -> None:
             AuthentikAPIError: 404 bila flow tidak ditemukan.
         """
         return await client.get(f"/flows/instances/{slug}/")
+
+    @mcp.tool(tags={"flows"})
+    async def authentik_flow_binding_list(
+        target: str | None = None,
+        stage: str | None = None,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> dict[str, Any]:
+        """Daftar binding flow-stage (urutan stage dalam flow) dengan filter.
+
+        Args:
+            target: Filter berdasarkan UUID flow target.
+            stage: Filter berdasarkan UUID stage.
+            page: Nomor halaman.
+            page_size: Jumlah item per halaman.
+
+        Returns:
+            Objek paginasi berisi ``results`` (binding) dan ``pagination``.
+
+        Raises:
+            AuthentikAPIError: Bila request gagal.
+        """
+        params = {"target": target, "stage": stage, "page": page, "page_size": page_size}
+        return await client.get("/flows/bindings/", params=params)
+
+    @mcp.tool(tags={"flows"})
+    async def authentik_flow_binding_get(fsb_uuid: str) -> dict[str, Any]:
+        """Ambil detail satu binding flow-stage.
+
+        Args:
+            fsb_uuid: UUID binding flow-stage.
+
+        Returns:
+            Objek binding apa adanya dari API.
+
+        Raises:
+            AuthentikAPIError: 404 bila binding tidak ditemukan.
+        """
+        return await client.get(f"/flows/bindings/{fsb_uuid}/")
 
     @mcp.tool(tags={"flows"})
     async def authentik_flow_execute(slug: str) -> dict[str, Any]:
