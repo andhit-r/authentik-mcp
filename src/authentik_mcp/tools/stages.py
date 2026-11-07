@@ -1,7 +1,8 @@
-"""Tool MCP (baca-saja) untuk Stage Authentik (endpoint ``/stages/``).
+"""Tool MCP untuk Stage Authentik (endpoint ``/stages/``).
 
-Mendaftarkan tool: ``authentik_stage_list``, ``authentik_stage_identification_get``,
-dan ``authentik_stage_authenticator_validate_get``. Tidak ada tool tulis.
+Tool baca: ``authentik_stage_list``, ``authentik_stage_identification_get``,
+``authentik_stage_authenticator_validate_get``. Tool tulis:
+``authentik_stage_identification_update``.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from ..client import AuthentikClient
 
 
 def register(mcp: FastMCP, client: AuthentikClient) -> None:
-    """Daftarkan tool baca-saja domain Stage ke server MCP.
+    """Daftarkan tool domain Stage (baca dan tulis) ke server MCP.
 
     Args:
         mcp: Instance FastMCP.
@@ -73,3 +74,38 @@ def register(mcp: FastMCP, client: AuthentikClient) -> None:
             AuthentikAPIError: 404 bila stage tidak ditemukan.
         """
         return await client.get(f"/stages/authenticator/validate/{stage_uuid}/")
+
+    @mcp.tool(tags={"stages"})
+    async def authentik_stage_identification_update(
+        stage_uuid: str,
+        sources: list[str] | None = None,
+        show_source_labels: bool | None = None,
+    ) -> dict[str, Any]:
+        """Perbarui stage identification (PATCH): daftar source dan label source.
+
+        PERINGATAN: ``sources`` MENGGANTIKAN seluruh daftar source yang ada, bukan
+        menambah. Baca daftar lama lebih dulu lewat
+        ``authentik_stage_identification_get`` lalu kirim daftar lengkap yang
+        diinginkan, atau source lain akan terlepas dari stage.
+
+        Args:
+            stage_uuid: UUID stage identification.
+            sources: UUID source yang ditampilkan (menggantikan daftar lama);
+                ``None`` berarti tidak diubah.
+            show_source_labels: Tampilkan label source; ``None`` berarti tidak diubah.
+
+        Returns:
+            Objek stage identification setelah diperbarui.
+
+        Raises:
+            ValueError: Bila kedua argumen ``None``; API tidak dipanggil.
+            AuthentikAPIError: 404 bila stage tidak ada, 422 bila validasi gagal.
+        """
+        payload: dict[str, Any] = {}
+        if sources is not None:
+            payload["sources"] = sources
+        if show_source_labels is not None:
+            payload["show_source_labels"] = show_source_labels
+        if not payload:
+            raise ValueError("Tidak ada field yang diberikan untuk diperbarui.")
+        return await client.patch(f"/stages/identification/{stage_uuid}/", json=payload)

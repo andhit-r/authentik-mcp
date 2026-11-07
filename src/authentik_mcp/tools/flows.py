@@ -1,7 +1,8 @@
 """Tool MCP untuk mengelola Flow Authentik (endpoint ``/flows/``).
 
 Mendaftarkan tool: list, get, create, update, delete, dan execute (memulai eksekusi flow),
-serta tool baca-saja binding flow-stage (``authentik_flow_binding_list``/``_get``).
+serta tool binding flow-stage: baca (``authentik_flow_binding_list``/``_get``) dan
+tulis (``authentik_flow_binding_create``/``_update``/``_delete``).
 """
 
 from __future__ import annotations
@@ -245,3 +246,99 @@ def register(mcp: FastMCP, client: AuthentikClient) -> None:
         """
         await client.delete(f"/flows/instances/{slug}/")
         return {"status": "deleted", "slug": slug}
+
+    @mcp.tool(tags={"flows"})
+    async def authentik_flow_binding_create(
+        target: str,
+        stage: str,
+        order: int,
+        evaluate_on_plan: bool | None = None,
+        re_evaluate_policies: bool | None = None,
+        policy_engine_mode: str | None = None,
+        invalid_response_action: str | None = None,
+    ) -> dict[str, Any]:
+        """Buat binding flow-stage (pasang stage ke flow pada urutan tertentu).
+
+        Args:
+            target: UUID flow tujuan (field ``target`` pada binding).
+            stage: UUID stage yang dipasang.
+            order: Urutan stage dalam flow.
+            evaluate_on_plan: Evaluasi kebijakan saat perencanaan; ``None`` tidak dikirim.
+            re_evaluate_policies: Evaluasi ulang kebijakan saat stage dijalankan;
+                ``None`` tidak dikirim.
+            policy_engine_mode: ``any`` atau ``all``; ``None`` tidak dikirim.
+            invalid_response_action: ``retry``, ``restart``, atau
+                ``restart_with_context``; ``None`` tidak dikirim.
+
+        Returns:
+            Objek binding yang dibuat.
+
+        Raises:
+            AuthentikAPIError: 422 bila validasi gagal.
+        """
+        payload: dict[str, Any] = {"target": target, "stage": stage, "order": order}
+        for key, value in {
+            "evaluate_on_plan": evaluate_on_plan,
+            "re_evaluate_policies": re_evaluate_policies,
+            "policy_engine_mode": policy_engine_mode,
+            "invalid_response_action": invalid_response_action,
+        }.items():
+            if value is not None:
+                payload[key] = value
+        return await client.post("/flows/bindings/", json=payload)
+
+    @mcp.tool(tags={"flows"})
+    async def authentik_flow_binding_update(
+        fsb_uuid: str,
+        order: int | None = None,
+        evaluate_on_plan: bool | None = None,
+        re_evaluate_policies: bool | None = None,
+        policy_engine_mode: str | None = None,
+        invalid_response_action: str | None = None,
+    ) -> dict[str, Any]:
+        """Perbarui sebagian field binding flow-stage (PATCH). Hanya non-None dikirim.
+
+        Args:
+            fsb_uuid: UUID binding.
+            order: Urutan baru.
+            evaluate_on_plan: Nilai baru.
+            re_evaluate_policies: Nilai baru.
+            policy_engine_mode: ``any`` atau ``all``.
+            invalid_response_action: Aksi baru saat respons tidak valid.
+
+        Returns:
+            Objek binding setelah diperbarui.
+
+        Raises:
+            ValueError: Bila tidak ada field yang diberikan; API tidak dipanggil.
+            AuthentikAPIError: 404 bila binding tidak ada, 422 bila validasi gagal.
+        """
+        payload: dict[str, Any] = {}
+        for key, value in {
+            "order": order,
+            "evaluate_on_plan": evaluate_on_plan,
+            "re_evaluate_policies": re_evaluate_policies,
+            "policy_engine_mode": policy_engine_mode,
+            "invalid_response_action": invalid_response_action,
+        }.items():
+            if value is not None:
+                payload[key] = value
+        if not payload:
+            raise ValueError("Tidak ada field yang diberikan untuk diperbarui.")
+        return await client.patch(f"/flows/bindings/{fsb_uuid}/", json=payload)
+
+    @mcp.tool(tags={"flows"})
+    async def authentik_flow_binding_delete(fsb_uuid: str) -> dict[str, str]:
+        """Hapus binding flow-stage (stage terlepas dari flow, stage tidak dihapus).
+
+        Args:
+            fsb_uuid: UUID binding.
+
+        Returns:
+            Konfirmasi berisi ``status`` dan ``fsb_uuid``.
+
+        Raises:
+            AuthentikAPIError: 404 bila binding tidak ditemukan.
+        """
+        await client.delete(f"/flows/bindings/{fsb_uuid}/")
+        return {"status": "deleted", "fsb_uuid": fsb_uuid}

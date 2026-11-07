@@ -75,3 +75,76 @@ async def test_authenticator_admin_list(mcp: FastMCP) -> None:
     )
     await call_tool(mcp, "authentik_authenticator_admin_list", {"user": 5})
     assert "user=5" in str(route.calls.last.request.url)
+
+
+@respx.mock
+async def test_stage_identification_update(mcp: FastMCP) -> None:
+    import json
+
+    route = respx.patch(f"{API_BASE}/stages/identification/{UUID}/").mock(
+        return_value=httpx.Response(200, json={"pk": UUID, "sources": ["s1"]})
+    )
+    data = await call_tool(
+        mcp,
+        "authentik_stage_identification_update",
+        {"stage_uuid": UUID, "sources": ["s1"], "show_source_labels": True},
+    )
+    assert json.loads(route.calls.last.request.content) == {
+        "sources": ["s1"],
+        "show_source_labels": True,
+    }
+    assert data["sources"] == ["s1"]
+
+
+@respx.mock
+async def test_stage_identification_update_kosong(mcp: FastMCP) -> None:
+    with pytest.raises(Exception) as exc:
+        await call_tool(mcp, "authentik_stage_identification_update", {"stage_uuid": UUID})
+    assert "Tidak ada field" in str(exc.value)
+    assert len(respx.calls) == 0
+
+
+@respx.mock
+async def test_flow_binding_create(mcp: FastMCP) -> None:
+    import json
+
+    route = respx.post(f"{API_BASE}/flows/bindings/").mock(
+        return_value=httpx.Response(201, json={"pk": UUID})
+    )
+    await call_tool(
+        mcp,
+        "authentik_flow_binding_create",
+        {"target": "t", "stage": UUID, "order": 10, "evaluate_on_plan": False},
+    )
+    assert json.loads(route.calls.last.request.content) == {
+        "target": "t",
+        "stage": UUID,
+        "order": 10,
+        "evaluate_on_plan": False,
+    }
+
+
+@respx.mock
+async def test_flow_binding_update_dan_kosong(mcp: FastMCP) -> None:
+    import json
+
+    route = respx.patch(f"{API_BASE}/flows/bindings/{UUID}/").mock(
+        return_value=httpx.Response(200, json={"pk": UUID, "order": 20})
+    )
+    await call_tool(mcp, "authentik_flow_binding_update", {"fsb_uuid": UUID, "order": 20})
+    assert json.loads(route.calls.last.request.content) == {"order": 20}
+    n = len(respx.calls)
+    with pytest.raises(Exception) as exc:
+        await call_tool(mcp, "authentik_flow_binding_update", {"fsb_uuid": UUID})
+    assert "Tidak ada field" in str(exc.value)
+    assert len(respx.calls) == n
+
+
+@respx.mock
+async def test_flow_binding_delete(mcp: FastMCP) -> None:
+    route = respx.delete(f"{API_BASE}/flows/bindings/{UUID}/").mock(
+        return_value=httpx.Response(204)
+    )
+    data = await call_tool(mcp, "authentik_flow_binding_delete", {"fsb_uuid": UUID})
+    assert route.called
+    assert data["fsb_uuid"] == UUID

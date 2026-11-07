@@ -10,6 +10,7 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Ditambahkan
+- Tool tulis: `authentik_source_oauth_create`/`_update`/`_delete`, `authentik_stage_identification_update`, `authentik_flow_binding_create`/`_update`/`_delete`. Create source bawaan `user_matching_mode=identifier` tanpa enrollment flow; `consumer_secret` tidak pernah muncul di keluaran/error.
 - Tool baca-saja stage, binding flow-stage, dan device MFA: `authentik_stage_list`, `authentik_stage_identification_get`, `authentik_stage_authenticator_validate_get`, `authentik_flow_binding_list`, `authentik_flow_binding_get`, `authentik_authenticator_admin_list`.
 - Tool baca-saja source OAuth: `authentik_source_list`, `authentik_source_oauth_list`, `authentik_source_oauth_get`, `authentik_source_connection_list` (`consumer_secret` dibuang dari keluaran).
 - Parameter `superuser_full_list` (bawaan `False`) pada `authentik_application_list` untuk daftar aplikasi lengkap.

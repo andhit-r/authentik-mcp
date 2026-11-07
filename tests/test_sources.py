@@ -71,3 +71,83 @@ async def test_application_list_superuser_full_list(mcp: FastMCP) -> None:
     assert "superuser_full_list=true" in str(route.calls.last.request.url)
     await call_tool(mcp, "authentik_application_list", {})
     assert "superuser_full_list" not in str(route.calls.last.request.url)
+
+
+@respx.mock
+async def test_source_oauth_create_bawaan_aman(mcp: FastMCP) -> None:
+    route = respx.post(f"{API_BASE}/sources/oauth/").mock(
+        return_value=httpx.Response(201, json={"slug": "g", "consumer_secret": "RHS"})
+    )
+    data = await call_tool(
+        mcp,
+        "authentik_source_oauth_create",
+        {
+            "name": "G",
+            "slug": "g",
+            "provider_type": "google",
+            "consumer_key": "k",
+            "consumer_secret": "RHS",
+        },
+    )
+    import json
+
+    body = json.loads(route.calls.last.request.content)
+    assert body["user_matching_mode"] == "identifier"
+    assert "enrollment_flow" not in body
+    assert body["provider_type"] == "google"
+    assert "consumer_secret" not in str(data)
+
+
+@respx.mock
+async def test_source_oauth_create_422_tanpa_secret(mcp: FastMCP) -> None:
+    respx.post(f"{API_BASE}/sources/oauth/").mock(
+        return_value=httpx.Response(422, json={"consumer_secret": ["salah: RAHASIA-XYZ"]})
+    )
+    with pytest.raises(Exception) as exc:
+        await call_tool(
+            mcp,
+            "authentik_source_oauth_create",
+            {
+                "name": "G",
+                "slug": "g",
+                "provider_type": "google",
+                "consumer_key": "k",
+                "consumer_secret": "RAHASIA-XYZ",
+            },
+        )
+    assert "RAHASIA-XYZ" not in str(exc.value)
+
+
+@respx.mock
+async def test_source_oauth_update_hanya_field_terisi(mcp: FastMCP) -> None:
+    import json
+
+    route = respx.patch(f"{API_BASE}/sources/oauth/g/").mock(
+        return_value=httpx.Response(200, json={"slug": "g", "consumer_secret": "RHS"})
+    )
+    data = await call_tool(
+        mcp,
+        "authentik_source_oauth_update",
+        {"slug": "g", "enabled": False, "consumer_secret": "RHS"},
+    )
+    assert json.loads(route.calls.last.request.content) == {
+        "enabled": False,
+        "consumer_secret": "RHS",
+    }
+    assert "RHS" not in str(data)
+
+
+@respx.mock
+async def test_source_oauth_update_kosong_valueerror(mcp: FastMCP) -> None:
+    with pytest.raises(Exception) as exc:
+        await call_tool(mcp, "authentik_source_oauth_update", {"slug": "g"})
+    assert "Tidak ada field" in str(exc.value)
+    assert len(respx.calls) == 0
+
+
+@respx.mock
+async def test_source_oauth_delete(mcp: FastMCP) -> None:
+    route = respx.delete(f"{API_BASE}/sources/oauth/g/").mock(return_value=httpx.Response(204))
+    data = await call_tool(mcp, "authentik_source_oauth_delete", {"slug": "g"})
+    assert route.called
+    assert data["slug"] == "g"

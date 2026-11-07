@@ -73,15 +73,15 @@ Konfigurasi tidak pernah di-hardcode — seluruhnya dari environment variable.
 | **Groups** | `authentik_group_list`, `authentik_group_get`, `authentik_group_create`, `authentik_group_update`, `authentik_group_delete`, `authentik_group_add_member`, `authentik_group_remove_member` |
 | **Roles / RBAC** | `authentik_role_list/get/create/update/delete/used_by`, `authentik_rbac_permission_list`, `authentik_rbac_role_*_permission`, `authentik_rbac_user_*_permission` |
 | **Applications** | `authentik_application_list` (opsi `superuser_full_list`), `authentik_application_get`, `authentik_application_create`, `authentik_application_update`, `authentik_application_delete` |
-| **Sources (baca-saja)** | `authentik_source_list`, `authentik_source_oauth_list`, `authentik_source_oauth_get`, `authentik_source_connection_list` — `consumer_secret` tidak pernah dikembalikan |
+| **Sources** | `authentik_source_list`, `authentik_source_oauth_list`, `authentik_source_oauth_get`, `authentik_source_connection_list`, `authentik_source_oauth_create`, `authentik_source_oauth_update`, `authentik_source_oauth_delete` — `consumer_secret` tidak pernah dikembalikan; create bawaan `user_matching_mode=identifier` tanpa enrollment flow |
 | **Providers** | `authentik_provider_list/get/create/update/delete` — CRUD per tipe: OAuth2, LDAP, SAML, Proxy, Radius, SCIM, RAC, SSF, WS-Federation, Google Workspace, Microsoft Entra |
 | **Policies** | `authentik_policy_list/get/create/update/delete/test` — tipe: expression, password, password_expiry, reputation, event_matcher, dummy, geoip, unique_password — plus `authentik_policy_binding_*` |
 | **Property Mappings** | `authentik_property_mapping_list/get/create/update/delete/test` — tipe provider (scope/saml/scim/rac/radius/google_workspace/microsoft_entra), source (ldap/oauth/plex/saml/scim/kerberos/telegram), notification |
 | **Crypto / Sertifikat** | `authentik_certificate_list/get/create/generate/update/delete/view/view_private_key` |
 | **Tokens** | `authentik_token_list`, `authentik_token_get`, `authentik_token_create`, `authentik_token_revoke` |
 | **Events/Logs** | `authentik_event_list`, `authentik_event_get`, `authentik_event_filter_by_action`, `authentik_event_filter_by_user` |
-| **Flows** | `authentik_flow_list`, `authentik_flow_get`, `authentik_flow_execute`, `authentik_flow_binding_list`, `authentik_flow_binding_get` |
-| **Stages (baca-saja)** | `authentik_stage_list`, `authentik_stage_identification_get`, `authentik_stage_authenticator_validate_get` |
+| **Flows** | `authentik_flow_list`, `authentik_flow_get`, `authentik_flow_execute`, `authentik_flow_binding_list`, `authentik_flow_binding_get`, `authentik_flow_binding_create`, `authentik_flow_binding_update`, `authentik_flow_binding_delete` |
+| **Stages** | `authentik_stage_list`, `authentik_stage_identification_get`, `authentik_stage_authenticator_validate_get`, `authentik_stage_identification_update` (`sources` menggantikan seluruh daftar) |
 | **Device MFA (baca-saja)** | `authentik_authenticator_admin_list` — metadata device saja |
 | **Outposts** | `authentik_outpost_list`, `authentik_outpost_get`, `authentik_outpost_update`, `authentik_outpost_health` |
 | **System / Admin** | `authentik_system_info`, `authentik_system_version`, `authentik_system_apps`, `authentik_system_models`, `authentik_system_settings_get`, `authentik_system_settings_update`, `authentik_system_version_history` |
