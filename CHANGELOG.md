@@ -9,6 +9,10 @@ dan proyek ini menggunakan [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+---
+
+## [1.11.0] - 2026-11-24
+
 ### Ditambahkan
 - Tool brand (`/core/brands/`): `authentik_brand_list`, `authentik_brand_get`, `authentik_brand_create`, `authentik_brand_update` (PATCH, dengan `clear_fields` untuk mengosongkan field flow/sertifikat), `authentik_brand_delete`.
 
