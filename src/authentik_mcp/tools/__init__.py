@@ -13,6 +13,7 @@ from ..client import AuthentikClient
 from . import (
     applications,
     authenticators,
+    brands,
     crypto,
     events,
     flows,
@@ -35,6 +36,7 @@ _MODULES = [
     groups,
     roles,
     applications,
+    brands,
     providers,
     policies,
     property_mappings,
